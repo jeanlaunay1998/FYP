@@ -1,9 +1,10 @@
 import os
-import numpy
+import numpy as np
 
 print("Hello world!")
-a = [1,2,3,4]
-a.ndim
+a = np.array([1,2,3,4])
+print(np.zeros((3,3)))
+print(a.ndim)
 
 for i in range(10):
 
