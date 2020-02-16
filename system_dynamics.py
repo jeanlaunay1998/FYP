@@ -3,7 +3,19 @@ from numpy import linalg as LA
 from scipy.integrate import odeint
 
 class dynamics:
-    def __init__(self, ho, lat, long, vo, gamma_o):
+    def __init__(self, ho, lat, long, vo, gamma_o, theta_o):
+        # ho: initial height
+        # lat: initial latitude
+        # long: initial longitude
+        # vo: initital velocity
+        # gamma_o: initial Flight Path Angle (normal to the local horizontal plane)
+        # theta_o: initial heading angle with respect to the north direction
+
+        # change angles to radians
+        long = np.pi*long/180
+        lat = np.pi*lat/180
+        gamma_o = np.pi*gamma_o/180
+        theta_o = np.pi*theta_o/180
 
         # earth constants
         self.G = 6.673e-11
@@ -16,11 +28,18 @@ class dynamics:
         self.A = np.pi*pow(self.D/2,2)
 
         # initialisation of state space
-        # self.x = np.zeros((3,3))
-        self.a = [0,0,0]
-        self.v = [vo * np.cos(gamma_o * np.pi / 180), 0, vo * np.sin(gamma_o * np.pi / 180)]
-        self.r = [(ho + self.R)*np.cos(lat*np.pi/180)*np.cos(long*np.pi/180), (ho + self.R)*np.cos(lat*np.pi/180)*np.sin(long*np.pi/180), (ho + self.R)*np.sin(lat*np.pi/180)] # initial height #
-        print(self.r)
+
+        self.a = [0, 0, 0]
+        v_NWU = [np.cos(theta_o)*np.cos(gamma_o), -np.sin(theta_o)*np.cos(gamma_o), np.sin(gamma_o)]
+        v_NWU = [v_NWU[i]*vo for i in range(len(v_NWU))] # velocity in North West Up coordinates
+
+        # transform to Earth Centred coordinates
+        self.v = []
+        self.v.append(-np.sin(lat)*np.cos(long)*v_NWU[0] + np.sin(long)*v_NWU[1] + np.cos(lat)*np.cos(long)*v_NWU[2])
+        self.v.append(-np.sin(lat)*np.sin(long)*v_NWU[0] - np.cos(long)*v_NWU[1] + np.cos(lat)*np.sin(long)*v_NWU[2])
+        self.v.append(np.cos(lat)*v_NWU[0] + np.sin(lat)*v_NWU[2])
+
+        self.r = [(ho + self.R)*np.cos(lat)*np.cos(long), (ho + self.R)*np.cos(lat)*np.sin(long), (ho + self.R)*np.sin(lat)] # initial height #
         self.x = [[self.a, self.v, self.r]]
 
         # plotted variables
@@ -135,11 +154,12 @@ class dynamics:
 
 
 # main
-d = dynamics(80e3, 90, 0, 6000, -5)
+d = dynamics(80e3, 90, 0, 6000, -5, 30)
 height = 80e3
 t_lim = 500
 t = 0
-while height>10000 and t<t_lim:
+
+while height>5000 and t<t_lim:
     d.delta_o = np.random.normal(0, pow(0.01 * d.beta_o, 2), size=1)
     d.a_res = 0 # np.random.normal(0, pow(0.01 * LA.norm(d.a), 2), size=1)
     d.step_update(d.v, d.r)
@@ -159,10 +179,6 @@ plt.plot(time, d.h, 'b', label='Height (m)')
 # plt.plot(time,sol[:,1],'r',label='Omega(t)')
 plt.legend(loc='best')
 plt.show()
-
-# print(d.x)
-# d.step_update(d.v, d.r,1)
-# print(np.array([d.a,d.v,d.r]))
 
 
 
