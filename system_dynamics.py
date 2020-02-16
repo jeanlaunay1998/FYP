@@ -12,17 +12,23 @@ class dynamics:
 
         # space debris constants
         self.m = 15.8
-        self.D = 3 # 3 meters of diameter debris
+        self.D = 0.58 # 3 meters of diameter debris
+        self.A = np.pi*pow(self.D/2,2)
 
         # initialisation of state space
-        self.x = np.zeros((3,3))
-        self.x[2,2] = ho + self.R # initial height #
-        self.x[1,0] = vo*np.cos(gamma_o*np.pi/180)
-        self.x[1,2] = vo*np.sin(gamma_o*np.pi/180)
-        self.a, self.v, self.r = self.x
+        # self.x = np.zeros((3,3))
+        self.a = [0,0,0]
+        self.v = [vo * np.cos(gamma_o * np.pi / 180), 0, vo * np.sin(gamma_o * np.pi / 180)]
+        self.r = [0, 0, ho + self.R] # initial height #
+        self.x = [[self.a, self.v, self.r]]
+
+        # plotted variables
+        self.h = [LA.norm(self.r)- self.R]
+        self.beta = [self.ballistic_coef(self.v, self.r)]
+        self.rho = [self.density_h(self.r)]
 
         # Runge Kutta parameters
-        self.delta_t = 0.001
+        self.delta_t = 0.01
 
 
 
@@ -68,7 +74,7 @@ class dynamics:
 
 
     def density_h(self,r):
-        height = LA.norm(r) - d.R
+        height = LA.norm(r) - self.R
 
         if height<9144:
             c1 = 1.227
@@ -86,41 +92,76 @@ class dynamics:
         return Re
 
 
-    def drag_coef(self, v,r):
+    def drag_coef(self, v, r):
         Re = self.reynolds(v,r)
-        Cd = (24/Re) + 2.6*pow(Re/5,-7.94) / (1 + pow(Re/5,-8)) + pow(Re,0.8)/46100
+        Cd = (24/Re) + 2.6*(Re/5)/(1 + pow(Re/5, 152)) + 0.411*pow(Re/263000, -7.94)/(1 + pow(Re/263000, -8)) + pow(Re, 0.8)/461000
         return Cd
 
 
-    def ballistic_coef(self, r, v):
+    def ballistic_coef(self, v, r):
 
-        beta =  self.density_h(r)*LA.norm(v)*self.D/self.visc(r)
+        beta =  self.m/(self.A*self.drag_coef(v, r))
         return beta
 
 
     def acceleration(self, v, r):
-        acc = -(self.G*self.M)/pow(LA.norm(r),3) * r - self.density_h(r)*LA.norm(v)*v/(2*self.ballistic_coef(r, v))
-        return acc
+        acc = -np.multiply((self.G*self.M)/pow(LA.norm(r),3), r) - np.multiply(self.density_h(r)*LA.norm(v)/(2*self.ballistic_coef(v, r)), v)
+        return list(acc)
 
     def dx(self, v, r):
-        return [self.acceleration(v, r),v]
+        return self.acceleration(v, r), v
 
-    def step_update(self, v, r, step):
-        K1 = np.multiply(self.delta_t,self.dx(v,r))
-        K2 = np.multiply(self.delta_t,self.dx(v+K1[0,:]/2,r+K1[1,:]/2))
-        K3 = np.multiply(self.delta_t,self.dx(v+K2[0,:]/2,r+K2[1,:]/2))
-        K4 = np.multiply(self.delta_t,self.dx(v+K3[0,:],r+K3[1,:]))
+    def step_update(self, v, r):
 
-        # self.a = [self.acceleration]
-        self.v, self.r = self.x[1:3,:] + (1/6)*(K1+2*K2+2*K3+K4)
+        K1 = np.multiply(self.delta_t, self.dx(v, r))
+        K2 = np.multiply(self.delta_t, self.dx(v+K1[0, :]/2, r+K1[1, :]/2))
+        K3 = np.multiply(self.delta_t, self.dx(v+K2[0, :]/2, r+K2[1, :]/2))
+        K4 = np.multiply(self.delta_t, self.dx(v+K3[0, :], r+K3[1, :]))
+
+        self.a = self.acceleration(d.v, d.r)
+        self.v, self.r = [self.v, self.r] + (1/6)*(K1+2*K2+2*K3+K4)
+        self.v = self.v.tolist()
+        self.r = self.r.tolist()
+        self.x.append([self.a, self.v, self.r])
+
+        self.h.append(LA.norm(self.r) - self.R)
+        self.beta.append(self.ballistic_coef(self.v, self.r))
+        self.rho.append(self.density_h(self.r))
+
 
 
 # main
 d = dynamics(80e3,6000,-5)
-print(d.r)
-print(d.v)
-print(d.x)
+height = 80e3
+t_lim = 240
+t = 0
+while height>500 and t<t_lim:
+    d.step_update(d.v, d.r)
+    height = d.h[len(d.h)-1]
+    t = t + d.delta_t
+    # print(t)
 
+
+import matplotlib.pyplot as plt
+time = np.linspace(0,t,len(d.h))
+plt.figure(1)
+plt.plot(time, d.beta, 'b', label='Ballistic coef')
+plt.legend(loc='best')
+plt.show()
+
+plt.figure(2)
+plt.plot(time, d.h, 'b', label='Height (m)')
+# plt.plot(time,sol[:,1],'r',label='Omega(t)')
+plt.legend(loc='best')
+plt.show()
+
+plt.figure(3)
+plt.plot(time, d.rho, 'b', label='Density')
+# plt.plot(time,sol[:,1],'r',label='Omega(t)')
+plt.legend(loc='best')
+plt.show()
+
+# print(d.x)
 # d.step_update(d.v, d.r,1)
 # print(np.array([d.a,d.v,d.r]))
 
