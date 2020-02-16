@@ -3,7 +3,7 @@ from numpy import linalg as LA
 from scipy.integrate import odeint
 
 class dynamics:
-    def __init__(self,ho,vo,gamma_o):
+    def __init__(self, ho, lat, long, vo, gamma_o):
 
         # earth constants
         self.G = 6.673e-11
@@ -19,13 +19,18 @@ class dynamics:
         # self.x = np.zeros((3,3))
         self.a = [0,0,0]
         self.v = [vo * np.cos(gamma_o * np.pi / 180), 0, vo * np.sin(gamma_o * np.pi / 180)]
-        self.r = [0, 0, ho + self.R] # initial height #
+        self.r = [(ho + self.R)*np.cos(lat*np.pi/180)*np.cos(long*np.pi/180), (ho + self.R)*np.cos(lat*np.pi/180)*np.sin(long*np.pi/180), (ho + self.R)*np.sin(lat*np.pi/180)] # initial height #
+        print(self.r)
         self.x = [[self.a, self.v, self.r]]
 
         # plotted variables
-        self.h = [LA.norm(self.r)- self.R]
-        self.beta = [self.ballistic_coef(self.v, self.r)]
-        self.rho = [self.density_h(self.r)]
+        self.h = [ho]
+        self.beta_o = self.m/(self.A*self.drag_coef(self.v, self.r))
+        # white noise accounting for not modeled physics
+        self.delta_o = np.random.normal(0, pow(0.01*self.beta_o, 2), size=1)
+        self.a_res = 0 # np.random.normal(0, pow(0.01*LA.norm(self.a), 2), size=1)
+
+        self.beta = [self.beta_o + self.delta_o]
 
         # Runge Kutta parameters
         self.delta_t = 0.01
@@ -101,12 +106,12 @@ class dynamics:
     def ballistic_coef(self, v, r):
 
         beta =  self.m/(self.A*self.drag_coef(v, r))
-        return beta
+        return beta + self.delta_o
 
 
     def acceleration(self, v, r):
         acc = -np.multiply((self.G*self.M)/pow(LA.norm(r),3), r) - np.multiply(self.density_h(r)*LA.norm(v)/(2*self.ballistic_coef(v, r)), v)
-        return list(acc)
+        return list(acc + self.a_res)
 
     def dx(self, v, r):
         return self.acceleration(v, r), v
@@ -126,20 +131,20 @@ class dynamics:
 
         self.h.append(LA.norm(self.r) - self.R)
         self.beta.append(self.ballistic_coef(self.v, self.r))
-        self.rho.append(self.density_h(self.r))
 
 
 
 # main
-d = dynamics(80e3,6000,-5)
+d = dynamics(80e3, 90, 0, 6000, -5)
 height = 80e3
-t_lim = 240
+t_lim = 500
 t = 0
-while height>500 and t<t_lim:
+while height>10000 and t<t_lim:
+    d.delta_o = np.random.normal(0, pow(0.01 * d.beta_o, 2), size=1)
+    d.a_res = 0 # np.random.normal(0, pow(0.01 * LA.norm(d.a), 2), size=1)
     d.step_update(d.v, d.r)
     height = d.h[len(d.h)-1]
     t = t + d.delta_t
-    # print(t)
 
 
 import matplotlib.pyplot as plt
@@ -151,12 +156,6 @@ plt.show()
 
 plt.figure(2)
 plt.plot(time, d.h, 'b', label='Height (m)')
-# plt.plot(time,sol[:,1],'r',label='Omega(t)')
-plt.legend(loc='best')
-plt.show()
-
-plt.figure(3)
-plt.plot(time, d.rho, 'b', label='Density')
 # plt.plot(time,sol[:,1],'r',label='Omega(t)')
 plt.legend(loc='best')
 plt.show()
