@@ -154,9 +154,9 @@ class dynamics:
 
 
 # main
-d = dynamics(80e3, 90, 0, 6000, -5, 30)
+d = dynamics(80e3, 90, 0, 6000, -5, 60)
 height = 80e3
-t_lim = 500
+t_lim = 1000
 t = 0
 
 while height>5000 and t<t_lim:
@@ -179,6 +179,22 @@ plt.plot(time, d.h, 'b', label='Height (m)')
 # plt.plot(time,sol[:,1],'r',label='Omega(t)')
 plt.legend(loc='best')
 plt.show()
+
+plotX = np.array(d.x)
+from mpl_toolkits.mplot3d import Axes3D
+
+fig = plt.figure(3)
+ax = fig.add_subplot(111, projection='3d')
+ax.plot(plotX[:, 2, 0], plotX[:, 2, 1], plotX[:, 2, 2])
+
+# u, v = np.mgrid[0:2*np.pi:20j, 0:np.pi:10j]
+# x = np.cos(u)*np.sin(v)*d.R
+# y = np.sin(u)*np.sin(v)*d.R
+# z = np.cos(v)*d.R
+# ax.plot_wireframe(x, y, z, color="r")
+
+plt.show()
+
 
 
 
