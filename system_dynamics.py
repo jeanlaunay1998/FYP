@@ -28,11 +28,8 @@ class dynamics:
         self.A = np.pi*pow(self.D/2,2)
 
         # initialisation of state space
-
-        self.a = [0, 0, 0]
         v_NWU = [np.cos(theta_o)*np.cos(gamma_o), -np.sin(theta_o)*np.cos(gamma_o), np.sin(gamma_o)]
         v_NWU = [v_NWU[i]*vo for i in range(len(v_NWU))] # velocity in North West Up coordinates
-
         # transform to Earth Centred coordinates
         self.v = []
         self.v.append(-np.sin(lat)*np.cos(long)*v_NWU[0] + np.sin(long)*v_NWU[1] + np.cos(lat)*np.cos(long)*v_NWU[2])
@@ -40,6 +37,8 @@ class dynamics:
         self.v.append(np.cos(lat)*v_NWU[0] + np.sin(lat)*v_NWU[2])
 
         self.r = [(ho + self.R)*np.cos(lat)*np.cos(long), (ho + self.R)*np.cos(lat)*np.sin(long), (ho + self.R)*np.sin(lat)] # initial height #
+
+        self.a = [0, 0, 0]
         self.x = [[self.a, self.v, self.r]]
 
         # plotted variables
@@ -53,7 +52,6 @@ class dynamics:
 
         # Runge Kutta parameters
         self.delta_t = 0.01
-
 
 
     def temp(self, r):
@@ -142,7 +140,7 @@ class dynamics:
         K3 = np.multiply(self.delta_t, self.dx(v+K2[0, :]/2, r+K2[1, :]/2))
         K4 = np.multiply(self.delta_t, self.dx(v+K3[0, :], r+K3[1, :]))
 
-        self.a = self.acceleration(d.v, d.r)
+        self.a = self.acceleration(self.v, self.r)
         self.v, self.r = [self.v, self.r] + (1/6)*(K1+2*K2+2*K3+K4)
         self.v = self.v.tolist()
         self.r = self.r.tolist()
@@ -151,49 +149,6 @@ class dynamics:
         self.h.append(LA.norm(self.r) - self.R)
         self.beta.append(self.ballistic_coef(self.v, self.r))
 
-
-
-# main
-d = dynamics(80e3, 90, 0, 6000, -5, 60)
-height = 80e3
-t_lim = 1000
-t = 0
-
-while height>5000 and t<t_lim:
-    d.delta_o = np.random.normal(0, pow(0.01 * d.beta_o, 2), size=1)
-    d.a_res = 0 # np.random.normal(0, pow(0.01 * LA.norm(d.a), 2), size=1)
-    d.step_update(d.v, d.r)
-    height = d.h[len(d.h)-1]
-    t = t + d.delta_t
-
-
-import matplotlib.pyplot as plt
-time = np.linspace(0,t,len(d.h))
-plt.figure(1)
-plt.plot(time, d.beta, 'b', label='Ballistic coef')
-plt.legend(loc='best')
-plt.show()
-
-plt.figure(2)
-plt.plot(time, d.h, 'b', label='Height (m)')
-# plt.plot(time,sol[:,1],'r',label='Omega(t)')
-plt.legend(loc='best')
-plt.show()
-
-plotX = np.array(d.x)
-from mpl_toolkits.mplot3d import Axes3D
-
-fig = plt.figure(3)
-ax = fig.add_subplot(111, projection='3d')
-ax.plot(plotX[:, 2, 0], plotX[:, 2, 1], plotX[:, 2, 2])
-
-# u, v = np.mgrid[0:2*np.pi:20j, 0:np.pi:10j]
-# x = np.cos(u)*np.sin(v)*d.R
-# y = np.sin(u)*np.sin(v)*d.R
-# z = np.cos(v)*d.R
-# ax.plot_wireframe(x, y, z, color="r")
-
-plt.show()
 
 
 
