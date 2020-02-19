@@ -38,17 +38,18 @@ class dynamics:
 
         self.r = [(ho + self.R)*np.cos(lat)*np.cos(long), (ho + self.R)*np.cos(lat)*np.sin(long), (ho + self.R)*np.sin(lat)] # initial height #
 
-        self.a = [0, 0, 0]
-        self.x = [[self.a, self.v, self.r]]
-
-        # plotted variables
+        # Useful variables
         self.h = [ho]
         self.beta_o = self.m/(self.A*self.drag_coef(self.v, self.r))
+
         # white noise accounting for not modeled physics
         self.delta_o = np.random.normal(0, pow(0.01*self.beta_o, 2), size=1)
-        self.a_res = 0 # np.random.normal(0, pow(0.01*LA.norm(self.a), 2), size=1)
+        self.a_res = 0 # np.random.normal(0, pow(0.01*LA.norm(self.a), 2), size=1) TO BE CHANGED
+        self.beta = self.beta_o + self.delta_o
+        self.beta = self.beta.tolist()
 
-        self.beta = [self.beta_o + self.delta_o]
+        self.a = self.acceleration(self.v, self.r)
+        self.x = [[self.a, self.v, self.r]]
 
         # Runge Kutta parameters
         self.delta_t = 0.01
@@ -134,6 +135,8 @@ class dynamics:
         return self.acceleration(v, r), v
 
     def step_update(self, v, r):
+        self.delta_o = np.random.normal(0, pow(0.01 * self.beta_o, 2), size=1)
+        self.a_res = 0  # np.random.normal(0, pow(0.01 * LA.norm(d.a), 2), size=1)
 
         K1 = np.multiply(self.delta_t, self.dx(v, r))
         K2 = np.multiply(self.delta_t, self.dx(v+K1[0, :]/2, r+K1[1, :]/2))
