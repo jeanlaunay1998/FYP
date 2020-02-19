@@ -61,9 +61,9 @@ class estimator:
         self.dr = np.random.normal(0, pow(self.delta_t, 3) / 3 + 0.5 * pow(self.delta_t, 2), size=1)
         self.dv = np.random.normal(0, self.delta_t + 0.5 * pow(self.delta_t, 2), size=1)
 
-        self.r = np.multiply(self.I, self.r) + self.delta_t*np.multiply(self.I, self.v) + pow(self.delta_t, 2)/2 * np.multiply(self.I, self.a) + self.dr
+        self.r = self.r + np.multiply(self.delta_t, self.v) + np.multiply(pow(self.delta_t, 2)/2, self.a) + self.dr
         self.r = self.r.tolist()
-        self.v = np.multiply(self.I, self.v) + self.delta_t*np.multiply(self.I, self.a) + self.dv
+        self.v = self.v + np.multiply(self.delta_t, self.a) + self.dv
         self.v.tolist()
 
 
@@ -86,8 +86,8 @@ o = SateliteObserver(40.24, 3.42, d)
 e = estimator(d.r, d.v, d.beta)
 t_lim = 1000
 t = 0
-y_real = o.h(d.r)
-y_estimate = o.h(e.r)
+y_real = [o.h(d.r)]
+y_estimate = [o.h(e.r)]
 
 while height>5000 and t<t_lim:
     d.step_update(d.v, d.r)
@@ -100,15 +100,8 @@ while height>5000 and t<t_lim:
     t = t + d.delta_t
 
 
-# time = np.linspace(0,t,len(d.h))
-# plt.figure(1)
-# y_plot = np.array(o.y)
-# print(y_plot[0][0])
-# plt.plot(time, y_plot[:][0], 'b', label='Ballistic coef')
-# plt.legend(loc='best')
-# plt.show()
+time = np.linspace(0, t, len(d.h))
 
-time = np.linspace(0,t,len(d.h))
 plt.figure(1)
 plt.plot(time, d.beta, 'b', label='Ballistic coef')
 plt.plot(time, e.ballistic, 'r', label='Ballistic coef')
@@ -121,6 +114,21 @@ plt.plot(time, e.h, 'r', label='Height estimator (m)')
 plt.legend(loc='best')
 plt.show()
 
+fig, ax = plt.subplots(3)
+yplot = np.array(y_real)
+print(yplot[:, 2])
+ax[0].plot(time, yplot[:, 0], 'b', label='Real distance')
+ax[1].plot(time, yplot[:, 1], 'b', label='Real elevation angle')
+ax[2].plot(time, yplot[:, 2], 'b', label='Real azimuth angle')
+
+yplot = np.array(y_estimate)
+print(yplot[:, 2])
+
+ax[0].plot(time, yplot[:, 0], 'r', label='Estimated distance')
+ax[1].plot(time, yplot[:, 1], 'r', label='Estimated elevation angle')
+ax[2].plot(time, yplot[:, 2], 'r', label='Estimated azimuth angle')
+plt.legend(loc='best')
+plt.show()
 # plotX = np.array(d.x)
 from mpl_toolkits.mplot3d import Axes3D
 #

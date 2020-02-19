@@ -19,11 +19,17 @@ class SateliteObserver:
         return np.matmul(self.transform_M, r) - [0, 0, self.R]
 
     def h(self, r):
+        sigma_d = np.random.normal(0, 1, size=1)
+        sigma_el = np.random.normal(0, 1e-3, size=1)
+        sigma_az = np.random.normal(0, 1e-3, size=1)
         y = [0, 0, 0]
         r_t = self.position_transform(r)
-        y[0] = LA.norm(r_t)
-        y[1] = np.arcsin(r_t[2]/y[0])
-        y[2] = np.arctan(r_t[1]/(-r_t[0]))
+        a = LA.norm(r_t) + sigma_d
+        y[0] = a[0]
+        a = np.arcsin(r_t[2]/y[0]) + sigma_el
+        y[1] = a[0]
+        a = np.arctan(r_t[1]/(-r_t[0])) + sigma_az
+        y[2] = a[0]
         return y
 
 
