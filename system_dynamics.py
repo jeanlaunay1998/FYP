@@ -128,7 +128,7 @@ class dynamics:
 
 
     def acceleration(self, v, r):
-        acc = -np.multiply((self.G*self.M)/pow(LA.norm(r),3), r) - np.multiply(self.density_h(r)*LA.norm(v)/(2*self.ballistic_coef(v, r)), v)
+        acc = -np.multiply((self.G*self.M)/pow(LA.norm(r), 3), r) - np.multiply(self.density_h(r)*LA.norm(v)/(2*self.ballistic_coef(v, r)), v)
         return list(acc + self.a_res)
 
     def dx(self, v, r):
