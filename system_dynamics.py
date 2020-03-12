@@ -1,6 +1,6 @@
 import numpy as np
 from numpy import linalg as LA
-from scipy.integrate import odeint
+
 
 class dynamics:
     def __init__(self, ho, lat, long, vo, gamma_o, theta_o):
@@ -30,12 +30,12 @@ class dynamics:
         # initialisation of state space
         v_NWU = [np.cos(theta_o)*np.cos(gamma_o), -np.sin(theta_o)*np.cos(gamma_o), np.sin(gamma_o)]
         v_NWU = [v_NWU[i]*vo for i in range(len(v_NWU))] # velocity in North West Up coordinates
+
         # transform to Earth Centred coordinates
         self.v = []
         self.v.append(-np.sin(lat)*np.cos(long)*v_NWU[0] + np.sin(long)*v_NWU[1] + np.cos(lat)*np.cos(long)*v_NWU[2])
         self.v.append(-np.sin(lat)*np.sin(long)*v_NWU[0] - np.cos(long)*v_NWU[1] + np.cos(lat)*np.sin(long)*v_NWU[2])
         self.v.append(np.cos(lat)*v_NWU[0] + np.sin(lat)*v_NWU[2])
-
         self.r = [(ho + self.R)*np.cos(lat)*np.cos(long), (ho + self.R)*np.cos(lat)*np.sin(long), (ho + self.R)*np.sin(lat)] # initial height #
 
         # Useful variables
@@ -122,7 +122,6 @@ class dynamics:
 
 
     def ballistic_coef(self, v, r):
-
         beta =  self.m/(self.A*self.drag_coef(v, r))
         return beta + self.delta_o
 

@@ -26,7 +26,7 @@ class SateliteObserver:
         return np.matmul(self.transform_M, r) - [0, 0, self.R]
 
     def h(self, r):
-        sigma_d = np.random.normal(0, 1, size=1)
+        sigma_d = np.random.normal(0, 50, size=1)
         sigma_el = np.random.normal(0, 1e-3, size=1)
         sigma_az = np.random.normal(0, 1e-3, size=1)
         y = [0, 0, 0]

@@ -1,8 +1,9 @@
 import numpy as np
 from numpy import linalg as LA
+import sys
 
 class model:
-    def __init__(self, r_o, v_o, beta_o):
+    def __init__(self, r_o, v_o, beta_o, delta):
         # r_o initial position from model
         # v_o initial velocity from theoretical model
         # beta_o initial estimated ballistic coefficient
@@ -13,8 +14,8 @@ class model:
         self.M = 5.972e24
         self.R = 6371e3
 
-        self.delta_t = 0.01
-        self.beta_o = beta_o[0]
+        self.delta_t = delta
+        self.beta_o = beta_o
 
         self.dbeta = np.random.normal(0, pow(0.01 * self.beta_o, 2), size=1)
         self.dr = np.random.normal(0, pow(self.delta_t, 3)/3 + 0.5*pow(self.delta_t, 2), size=1)
@@ -46,7 +47,7 @@ class model:
 
     def acceleration(self, r, v, beta):
         a = -np.multiply((self.G*self.M)/pow(LA.norm(r), 3), r)
-        b = - np.multiply(self.density_h(r) * LA.norm(v)/(2*beta[0]), v)
+        b = - np.multiply(self.density_h(r)*LA.norm(v)/(2*beta[0]), v)
         acc =  a + b
         return acc.tolist()
 
@@ -61,10 +62,26 @@ class model:
         v_return = self.v + np.multiply(self.delta_t, a) + self.dv
         v_return = v_return.tolist()
 
-        beta_return = beta + self.dbeta
+        beta_return = beta #+ self.dbeta
         a_return = self.acceleration(r, v, beta)
 
         return [r_return, v_return, a_return, beta_return]
+
+    def f_test(self, r, v, a, beta):
+
+        self.dbeta = 0  # np.random.normal(0, pow(0.005 * self.beta_o, 2), size=1)
+        self.dr = np.random.normal(0, pow(self.delta_t, 3) / 3 + 0.5 * pow(self.delta_t, 2), size=1)
+        self.dv = np.random.normal(0, self.delta_t + 0.5 * pow(self.delta_t, 2), size=1)
+
+        r_return = r + np.multiply(self.delta_t, v) + np.multiply(pow(self.delta_t, 2) / 2, a) #+ self.dr
+        r_return = r_return.tolist()
+        v_return = self.v + np.multiply(self.delta_t, a) #+ self.dv
+        v_return = v_return.tolist()
+
+        beta_return = beta #+ self.dbeta
+        a_return = self.acceleration(r, v, beta)
+
+        return r_return[1]
 
     def step_update(self):
         self.r, self.v, self.a, self.beta = self.f(self.r, self.v, self.a, self.beta)

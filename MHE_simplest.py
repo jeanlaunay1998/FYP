@@ -4,13 +4,15 @@ from numpy import linalg as LA
 
 
 class MHE:
-    def __init__(self, model, observer):
+    def __init__(self, model, observer, measurement_lapse):
+        self.m = model  # copy direction of model to access all function of the class
+        self.o = observer  # copy direction of observer to access all function of the class
+
         self.alpha = 0.1  # random size of the step (to be changed by Hessian of the matrix)
         self.N = 10  # number of points in the horizon
         self.J = 0  # matrix to store cost function
+        self.inter_steps = int(measurement_lapse/self.m.delta_t)
 
-        self.m = model  # copy direction of model to access all function of the class
-        self.o = observer  # copy direction of observer to access all function of the class
         self.x_apriori = []
         self.x_init = []
         self.y = []
@@ -21,16 +23,15 @@ class MHE:
 
     def initialisation(self, y_measured, step):
         if step == self.N:
-            self.y = np.array(y_measured)[step-self.N:step, :]
-            self.x_apriori = np.array(self.m.Sk[step-self.N])
+            self.y = np.array(y_measured)[step - self.N:step, :]
+            self.x_apriori = np.array(self.m.Sk[len(self.m.Sk)-1-(self.N-1)*self.inter_steps])  # there is N-1 intervals over the horizon
             self.x_init = self.x_apriori
 
-            self.beta = self.m.beta # for the moment this works since beta is constant IT WILL BE CHANGE!)
-            self.a = np.array(self.m.acceleration(self.x_apriori[0], self.x_apriori[1], self.beta)) # change withh acceleration function
+            self.beta = self.m.beta  # for the moment this works since beta is constant IT WILL BE CHANGE!)
+            self.a = np.array(self.m.acceleration(self.x_apriori[0], self.x_apriori[1], self.beta))  # change with acceleration function
 
         if step > self.N:
-            self.y = np.array(y_measured)[step - self.N:step, :]#
-
+            self.y = np.array(y_measured)[step - self.N:step, :]
             self.a = np.array(self.m.acceleration(self.x_solution[0], self.x_solution[1], self.beta))
             self.x_apriori[0], self.x_apriori[1], self.a, self.beta = self.m.f(self.x_solution[0], self.x_solution[1], self.a, self.beta)
             self.x_init = self.x_apriori
@@ -38,18 +39,26 @@ class MHE:
             self.beta = self.m.beta
 
     def cost_function(self, x):
+        # built in optimisation function delivers the input in shape (6,1) when shape (2,3) is required
         if len(x) != len(self.x_apriori):
             a = np.zeros((2,3))
             for i in range(len(x)):
                 a[int(i/3), i%3] = x[i]
             x = np.array(a)
 
-        self.J = 0.01*pow(LA.norm(x - self.x_apriori), 2) + pow(LA.norm(self.y[0] - self.o.h(x[0])), 2)
+        matrixR = np.array([[1/self.y[0, 0], 0, 0], [0, 10000/self.y[0, 1], 0], [0, 0, 10000/self.y[0,2]]])
+        J = 0.05*pow(LA.norm(x - self.x_apriori), 2) + pow(LA.norm(np.matmul(matrixR, (self.y[0] - self.o.h(x[0])))), 2)
         x_iplus1 = x
+        self.a = np.array(self.m.acceleration(x_iplus1[0], x_iplus1[1], self.beta))
+
         for i in range(self.N):
-            x_iplus1[0], x_iplus1[1], self.a, self.beta = self.m.f(x_iplus1[0], x_iplus1[1], self.a, self.beta)
-            self.J = self.J + pow(LA.norm(self.y[i] - self.o.h(x_iplus1[0])), 2)
-        return self.J
+            # note that since the model perform steps of 0.01 secs the step update needs to be perform 1/0.01 times to
+            # obtain the value at same measurement time
+            for j in range(self.inter_steps):
+                x_iplus1[0], x_iplus1[1], self.a, self.beta = self.m.f(x_iplus1[0], x_iplus1[1], self.a, self.beta)
+            matrixR = np.array([[1/self.y[i, 0], 0, 0], [0, 10000/self.y[i, 1], 0], [0, 0, 10000/self.y[i,2]]])
+            J = J + pow(LA.norm(np.matmul(matrixR, (self.y[i] - self.o.h(x_iplus1[0])))), 2)
+        return J
 
 
     def density_constants(self, height):
@@ -80,12 +89,13 @@ class MHE:
         dB = np.array([[constant2[0]*v[0]*r[0], constant2[0]*v[0]*r[1], constant2[0]*v[0]*r[2]],
               [constant2[0]*v[1]*r[0], constant2[0]*v[1]*r[1], constant2[0]*v[1]*r[2]],
               [constant2[0]*v[2]*r[0], constant2[0]*v[2]*r[1], constant2[0]*v[2]*r[2]]])
+
         dadr = dA + dB
         return dadr
 
     def dacc_dv(self, r, v):
         norm_v = LA.norm(v)
-        constant1 = -(self.m.density_h(r)/self.beta)
+        constant1 = -(self.m.density_h(r)/(2*self.beta))
         dadv = np.array([[norm_v + pow(norm_v, -1)*v[0]*v[0], pow(norm_v, -1)*v[0]*v[1], pow(norm_v, -1)*v[0]*v[2]],
                         [pow(norm_v, -1)*v[1]*v[0], norm_v + pow(norm_v, -1)*v[1]*v[1], pow(norm_v, -1)*v[1]*v[2]],
                         [pow(norm_v, -1)*v[2]*v[0], pow(norm_v, -1)*v[2]*v[1], norm_v + pow(norm_v, -1)*v[2]*v[2]]])
@@ -162,6 +172,3 @@ class MHE:
             self.gradient(self.x_init)
             self.x_init[0] = self.x_init[0] - self.alpha*self.grad[0:3]
             self.x_init[1] = self.x_init[1] - self.alpha*self.grad[3:6]
-
-
-
