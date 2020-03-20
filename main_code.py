@@ -1,5 +1,6 @@
 import matplotlib.pyplot as plt
 from scipy import optimize
+from scipy.optimize import minimize
 import numpy as np
 from numpy import linalg as LA
 import sys
@@ -12,7 +13,7 @@ from MHE_simplest import MHE
 t_lim = 200
 
 t = 0.00
-step = int(1)
+step = int(1)  # number of measurements so saf
 delta = int(0)
 measurement_lapse = 0.5  # time lapse between every measurement
 
@@ -77,27 +78,32 @@ while height > 5000 and t < t_lim:
         time.append(t)
         real_x.append([d.r, d.v])
 
-        if step >= opt.N: # MHE is entered only when there exists sufficient measurements over the horizon
+        if step >= opt.N+1: # MHE is entered only when there exists sufficient measurements over the horizon
 
             # print(t_lim-t)
             opt.initialisation(y_real, step)
             x_initial = []
 
+            # --------------------------------------- #
+            # a = opt.cost_function(opt.x_apriori)
+            # print('gradient')
+            # print(opt.gradient([d.r, d.v]))
+            # print('aaaaaa')
+            # eps = 0.001
+            # plus_eps = [[d.r[0], d.r[1], d.r[2]], [d.v[0]+eps, d.v[1], d.v[2]]]
+            # minus_eps = [[d.r[0], d.r[1], d.r[2]], [d.v[0]-eps, d.v[1], d.v[2]]]
+            # A = opt.cost_function(plus_eps)
+            # B = opt.cost_function(minus_eps)
+            # derivative1 = (A - B) / (2*eps)
+            # print(derivative1)
+            # sys.exit()
+            # --------------------------------------- #
+
             # optimisation
             for i in range(6): x_initial.append(opt.x_init[int(i / 3), i % 3])
             x_initial = np.array(x_initial)
 
-            print(opt.df([d.r, d.v]))
-            acceleration4test = m.acceleration(d.r, d.v, d.beta)
-            print('aaaaaa')
-            eps = 100
-            derivative1 = (m.f_test([d.r[0], d.r[1]+eps, d.r[2]], d.v, acceleration4test, d.beta) - m.f_test(d.r, d.v, acceleration4test, d.beta))/eps
-            print(derivative1)
-            derivative2 = (m.f_test([d.r[0], d.r[1]+eps, d.r[2]], d.v, acceleration4test, d.beta) - m.f_test([d.r[0], d.r[1]-eps, d.r[2]], d.v, acceleration4test, d.beta))/(2*eps)
-            print(derivative2)
-            sys.exit()
-
-            res = minimize(opt.cost_function, opt.x_init, method='nelder-mead', options = {'xatol': 1e-2, 'adaptive' : True})
+            res = minimize(opt.cost_function, opt.x_init, method='BFGS', jac=opt.gradient, options = {'gtol': 1e-6})
             for j in range(6): opt.x_solution[int(j/3), j % 3] = res.x[j]
 
             # store points to analyse later
@@ -105,8 +111,8 @@ while height > 5000 and t < t_lim:
             time_est.append(t-opt.N*d.delta_t)
             y_mhe.append(o.h(opt.x_solution[0]))
             estimate_cost.append(opt.cost_function(opt.x_solution))
-            true_cost.append(opt.cost_function(real_x[len(real_x)-opt.N]))
-            model_cost.append(opt.cost_function(np.array(m.Sk[len(m.Sk)-1-(opt.N-1)*opt.inter_steps])))
+            true_cost.append(opt.cost_function(real_x[len(real_x)-1-opt.N]))
+            model_cost.append(opt.cost_function(np.array(m.Sk[len(m.Sk)-1-opt.N*opt.inter_steps])))
 
 # time = np.linspace(0, t, len(d.h))
 

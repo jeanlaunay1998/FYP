@@ -51,11 +51,15 @@ class model:
         acc =  a + b
         return acc.tolist()
 
-    def f(self, r, v, a, beta):
-
-        self.dbeta = 0  # np.random.normal(0, pow(0.005 * self.beta_o, 2), size=1)
-        self.dr = np.random.normal(0, pow(self.delta_t, 3) / 3 + 0.5 * pow(self.delta_t, 2), size=1)
-        self.dv = np.random.normal(0, self.delta_t + 0.5 * pow(self.delta_t, 2), size=1)
+    def f(self, r, v, a, beta, error='on'):
+        if error == 'on':
+            self.dbeta = 0  # np.random.normal(0, pow(0.005 * self.beta_o, 2), size=1)
+            self.dr = np.random.normal(0, pow(self.delta_t, 3) / 3 + 0.5 * pow(self.delta_t, 2), size=1)
+            self.dv = np.random.normal(0, self.delta_t + 0.5 * pow(self.delta_t, 2), size=1)
+        elif error== 'off':
+            self.dbeta = 0
+            self.dr = 0
+            self.dv = 0
 
         r_return = r + np.multiply(self.delta_t, v) + np.multiply(pow(self.delta_t, 2) / 2, a) + self.dr
         r_return = r_return.tolist()
@@ -67,21 +71,6 @@ class model:
 
         return [r_return, v_return, a_return, beta_return]
 
-    def f_test(self, r, v, a, beta):
-
-        self.dbeta = 0  # np.random.normal(0, pow(0.005 * self.beta_o, 2), size=1)
-        self.dr = np.random.normal(0, pow(self.delta_t, 3) / 3 + 0.5 * pow(self.delta_t, 2), size=1)
-        self.dv = np.random.normal(0, self.delta_t + 0.5 * pow(self.delta_t, 2), size=1)
-
-        r_return = r + np.multiply(self.delta_t, v) + np.multiply(pow(self.delta_t, 2) / 2, a) #+ self.dr
-        r_return = r_return.tolist()
-        v_return = self.v + np.multiply(self.delta_t, a) #+ self.dv
-        v_return = v_return.tolist()
-
-        beta_return = beta #+ self.dbeta
-        a_return = self.acceleration(r, v, beta)
-
-        return r_return[1]
 
     def step_update(self):
         self.r, self.v, self.a, self.beta = self.f(self.r, self.v, self.a, self.beta)
