@@ -20,12 +20,13 @@ class MHE:
         self.beta = []
 
         self.x_solution = np.zeros((2, 3))
+        self.mu = 0.01
 
     def initialisation(self, y_measured, step):
         if step == self.N+1:
             self.y = np.array(y_measured)[step - self.N - 1:step, :]
             self.x_apriori = np.array(self.m.Sk[len(self.m.Sk)-1-self.N*self.inter_steps])  # there is N-1 intervals over the horizon
-            self.x_init = self.x_apriori
+            self.x_init = np.array(self.m.Sk[len(self.m.Sk)-1-self.N*self.inter_steps])
 
             self.beta = self.m.beta  # for the moment this works since beta is constant IT WILL BE CHANGE!)
             self.a = np.array(self.m.acceleration(self.x_apriori[0], self.x_apriori[1], self.beta))  # change with acceleration function
@@ -34,7 +35,7 @@ class MHE:
             self.y = np.array(y_measured)[step - self.N -1:step, :]
             self.a = np.array(self.m.acceleration(self.x_solution[0], self.x_solution[1], self.beta))
             self.x_apriori[0], self.x_apriori[1], self.a, self.beta = self.m.f(self.x_solution[0], self.x_solution[1], self.a, self.beta, 'off')
-            self.x_init = self.x_apriori
+            self.x_init = np.array(self.x_apriori)
 
             self.beta = self.m.beta
 
@@ -46,14 +47,15 @@ class MHE:
             for i in range(len(x)):
                 a[int(i/3), i%3] = x[i]
             x = np.array(a)
-
-        J = 1*pow(LA.norm(x - self.x_apriori), 2)
-        x_iplus1 = x
+        J = self.mu*pow(LA.norm(x - self.x_apriori), 2)
+        x_iplus1 = np.copy(x)
         self.a = np.array(self.m.acceleration(x_iplus1[0], x_iplus1[1], self.beta))
 
+        # print('y')
         for i in range(0, self.N+1):
-            # matrixR = np.array([[1/self.y[i+1, 0], 0, 0], [0, 100/self.y[i+1, 1], 0], [0, 0, 100/self.y[i+1,2]]])
-            matrixR = [[1, 0, 0], [0, 1, 0], [0, 0, 1]]
+
+            matrixR = np.array([[1/self.y[i, 0], 0, 0], [0, 1000/self.y[i, 1], 0], [0, 0, 100/self.y[i,2]]])
+            # matrixR = [[1, 0, 0], [0, 1, 0], [0, 0, 1]]
             J = J + pow(LA.norm(np.matmul(matrixR, (self.y[i] - self.o.h(x_iplus1[0], 'off')))), 2)
 
             # note that since the model perform steps of 0.01 secs the step update needs to be perform 1/0.01 times to
@@ -173,7 +175,7 @@ class MHE:
             x_i = []
             x_i = np.zeros((2,3))
             for i in range(6): x_i[int(i / 3), i % 3] = a[i]
-        a = np.array(x_i - self.x_apriori)
+        a = self.mu*np.array(x_i - self.x_apriori)
         for i in range(6): grad[i] = a[int(i/3), i%3]
         dfdx_i = []
         dhdx_i = []
@@ -194,16 +196,20 @@ class MHE:
         dfdx_i =np.array((dfdx_i))
         h_i = np.array(h_i)
 
-        grad = grad + np.matmul(np.transpose(dhdx_i[0]), h_i[0]-self.y[0])
+        matrixR = np.array([[1 / self.y[0, 0], 0, 0], [0, 100 / self.y[0, 1], 0], [0, 0, 100 / self.y[0, 2]]])
+        # matrixR = [[1,0,0],[0,1,0],[0,0,1]]
+        grad = grad + np.matmul(np.transpose(dhdx_i[0]), np.matmul(matrixR, h_i[0]-self.y[0]))
         for i in range(1, self.N+1):
             dfdx_mult = dfdx_i[0]
 
             # apparently the derivative is better approximated this way (mathematically it does not make sens)
-            # for j in range(1, i):
-            #     dfdx_mult = np.matmul(dfdx_i[j], dfdx_mult)
+            for j in range(1, i):
+                dfdx_mult = np.matmul(dfdx_i[j], dfdx_mult)
 
             A = np.matmul(dhdx_i[i], dfdx_mult) # dh(x_i)/dx_k-N
-            B = (h_i[i] - self.y[i])
+            # matrixR = [[1, 0, 0], [0, 1, 0], [0, 0, 1]]
+            matrixR = np.array([[1 / self.y[i, 0], 0, 0], [0, 100 / self.y[i, 1], 0], [0, 0, 100 / self.y[i, 2]]])
+            B = np.matmul(matrixR, h_i[i] - self.y[i])
             C = np.matmul(np.transpose(A), B)
             grad = grad + C
         grad = 2*grad

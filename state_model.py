@@ -79,3 +79,27 @@ class model:
         # Variables used for plots
         self.h.append(LA.norm(self.r) - self.R)
         self.ballistic.append(self.beta[0])
+
+    def reinitialise(self, y_real, o, measurement_lapse):
+        distance = y_real[len(y_real) - 1][0]
+        elevation = y_real[len(y_real) - 1][1]
+        azimuth = y_real[len(y_real) - 1][2]
+        rz = distance * np.sin(elevation)
+        rx = ((distance ** 2 - rz ** 2) / (1 + np.tan(azimuth) ** 2)) ** 0.5
+        ry = -rx * np.tan(azimuth)
+        r = np.matmul(np.linalg.inv(o.transform_M), [rx, ry, rz + o.R])
+
+        distance = y_real[len(y_real) - 2][0]
+        elevation = y_real[len(y_real) - 2][1]
+        azimuth = y_real[len(y_real) - 2][2]
+        rz = distance * np.sin(elevation)
+        rx = ((distance ** 2 - rz ** 2) / (1 + np.tan(azimuth) ** 2)) ** 0.5
+        ry = -rx * np.tan(azimuth)
+        rminus = np.matmul(np.linalg.inv(o.transform_M), [rx, ry, rz + o.R])
+
+        self.r = r
+        self.v = (r - rminus)/measurement_lapse
+        self.a = self.acceleration(self.r, self.v, self.beta)
+        self.Sk[len(self.Sk)-1] = [self.r, self.v]
+        self.h[len(self.h)-1] = LA.norm(self.r) - self.R
+        self.ballistic[len(self.ballistic)-1] = self.beta[0]
