@@ -3,7 +3,8 @@ from numpy import linalg as LA
 from scipy.optimize import minimize
 import sys
 
-class MHE:
+
+class MHE_regularisation:
     def __init__(self, model, observer, measurement_lapse):
         self.m = model  # copy direction of model to access all function of the class
         self.o = observer  # copy direction of observer to access all function of the class
@@ -14,53 +15,62 @@ class MHE:
         self.inter_steps = int(measurement_lapse/self.m.delta_t)
 
         self.x_apriori = []
-        self.x_init = []
+        self.x_init = np.zeros(7)
         self.y = []
         self.a = []
-        self.beta = []
+        self.beta = self.m.beta
+        self.beta_apriori = self.m.beta
 
-        self.x_solution = np.zeros((2, 3))
-        self.mu = 0.001
+        self.x_solution = [0, 0, 0]
+        self.mu1 = 0.01
+        self.mu2 = 10
+        self.mu3 = 0.001
 
     def initialisation(self, y_measured, step):
         if step == self.N+1:
             self.y = np.array(y_measured)[step - self.N - 1:step, :]
             self.x_apriori = np.array(self.m.Sk[len(self.m.Sk)-1-self.N*self.inter_steps])  # there is N-1 intervals over the horizon
-            self.x_init = np.array(self.m.Sk[len(self.m.Sk)-1-self.N*self.inter_steps])
+            self.x_init[0:3] = self.m.Sk[len(self.m.Sk)-1-self.N*self.inter_steps][0]
+            self.x_init[3:6] = self.m.Sk[len(self.m.Sk)-1-self.N*self.inter_steps][1]
+            self.x_init[6] = self.m.beta
 
-            self.beta = self.m.beta  # it is assumed that beta is constant
+            self.beta = self.m.beta  # Initial guess from model
             self.a = np.array(self.m.acceleration(self.x_apriori[0], self.x_apriori[1], self.beta))  # change with acceleration function
 
         if step > self.N+1:
             self.y = np.array(y_measured)[step - self.N -1:step, :]
+            self.beta = self.x_solution[2]  # update new initial guess of beta
             self.a = np.array(self.m.acceleration(self.x_solution[0], self.x_solution[1], self.beta))
             self.x_apriori[0], self.x_apriori[1], self.a, self.beta = self.m.f(self.x_solution[0], self.x_solution[1], self.beta, 'off')
-            self.x_init = np.array(self.x_apriori)
+            self.x_init[0:3] = self.x_apriori[0]
+            self.x_init[3:6] = self.x_apriori[1]
+            self.x_init[6] = self.x_solution[2]
 
 
     def cost_function(self, x):
 
         # built in optimisation function delivers the input in shape (6,1) when shape (2,3) is required
         if len(x) != len(self.x_apriori):
-            a = np.zeros((2,3))
-            for i in range(len(x)):
+            a = np.zeros((2, 3))
+            for i in range(len(x)-1):
                 a[int(i/3), i%3] = x[i]
-            x = np.array(a)
-        J = self.mu*pow(LA.norm(x - self.x_apriori), 2)
-        x_iplus1 = np.copy(x)
+            beta_i = x[6]
+
+        x_iplus1 = np.copy(a)
+        J = self.mu1*(LA.norm(x_iplus1 - self.x_apriori)**2) + self.mu3*(self.beta_apriori-beta_i)**2
 
         for i in range(0, self.N+1):
 
-            # matrixR = np.array([[1/self.y[i, 0], 0, 0], [0, 1000/self.y[i, 1], 0], [0, 0, 100/self.y[i,2]]])
-            matrixR = [[1, 0, 0], [0, 1, 0], [0, 0, 1]]
-            J = J + pow(LA.norm(np.matmul(matrixR, (self.y[i] - self.o.h(x_iplus1[0], 'off')))), 2)
+            matrixR = np.array([[1/self.y[i, 0], 0, 0], [0, 1000/self.y[i, 1], 0], [0, 0, 100/self.y[i, 2]]])
+            # matrixR = [[1, 0, 0], [0, 1, 0], [0, 0, 1]]
+            J = J + self.mu2*pow(LA.norm(np.matmul(matrixR, (self.y[i] - self.o.h(x_iplus1[0], 'off')))), 2)
 
             # note that since the model perform steps of 0.01 secs the step update needs to be perform 1/0.01 times to
             # obtain the value at same measurement time
             for j in range(self.inter_steps):
-                x_iplus1[0], x_iplus1[1], self.a, self.beta = self.m.f(x_iplus1[0], x_iplus1[1], self.beta, 'off')
-        return J
+                x_iplus1[0], x_iplus1[1], self.a, beta_i = self.m.f(x_iplus1[0], x_iplus1[1], beta_i, 'off')
 
+        return J
 
     def search(self, method='heuristic'):
         if method=='heuristic':
@@ -70,7 +80,10 @@ class MHE:
         else:
             print('Error: Optimization method not recognized')
             sys.exit()
-        for j in range(6): self.x_solution[int(j / 3), j % 3] = res.x[j]
+        self.x_solution[0] = [res.x[0], res.x[1], res.x[2]]
+        self.x_solution[1] = [res.x[3], res.x[4], res.x[5]]
+        self.x_solution[2] = res.x[6]
+        print('opt finished')
 
 
     def density_constants(self, height):
@@ -84,14 +97,15 @@ class MHE:
         return [c1, c2]
 
 
-    def dacc_dr(self, r, v):
+    def dacc_dr(self, r, v, beta):
         norm_r = LA.norm(r)
         norm_v = LA.norm(v)
 
         # For legibility of the gradient constant terms across gradient are previously defined
         constant1 = self.m.G*self.m.M*pow(norm_r, -3)
         c1, c2 = self.density_constants(norm_r)
-        constant2 = norm_v*c2*self.m.density_h(r)/(2*self.beta*norm_r)
+        constant2 = norm_v*c2*self.m.density_h(r)/(2*beta*norm_r)
+
 
         dA = constant1 * np.array([[-1 + pow(norm_r, -2)*r[0]*r[0], pow(norm_r, -2)*r[0]*r[1], pow(norm_r, -2)*r[0]*r[2]],
                                    [pow(norm_r, -2)*r[1]*r[0], -1 + pow(norm_r, -2)*r[1]*r[1], pow(norm_r, -2)*r[1]*r[2]],
@@ -105,31 +119,44 @@ class MHE:
         return dadr
 
 
-    def dacc_dv(self, r, v):
+    def dacc_dv(self, r, v, beta):
         norm_v = LA.norm(v)
-        constant1 = -(self.m.density_h(r)/(2*self.beta))
+        constant1 = -(self.m.density_h(r)/(2*beta))
         dadv = np.array([[norm_v + pow(norm_v, -1)*v[0]*v[0], pow(norm_v, -1)*v[0]*v[1], pow(norm_v, -1)*v[0]*v[2]],
                          [pow(norm_v, -1)*v[1]*v[0], norm_v + pow(norm_v, -1)*v[1]*v[1], pow(norm_v, -1)*v[1]*v[2]],
                          [pow(norm_v, -1)*v[2]*v[0], pow(norm_v, -1)*v[2]*v[1], norm_v + pow(norm_v, -1)*v[2]*v[2]]])
         dadv = constant1*dadv
         return dadv
 
+    def dacc_dbeta(self, r, v, beta):
+        v_norm = LA.norm(v)
 
-    def df(self, x):
+        da_dbeta = [0, 0, 0]
+        da_dbeta[0] = 0.5*self.m.density_h(r)*v_norm*v[0]/(beta**2)
+        da_dbeta[1] = 0.5*self.m.density_h(r)*v_norm*v[1]/(beta**2)
+        da_dbeta[2] = 0.5*self.m.density_h(r)*v_norm*v[2]/(beta**2)
+
+        return da_dbeta
+
+
+    def df(self, x, beta):
         # x: point at which the derivative is evaluated
         r = x[0]
         v = x[1]
 
         # compute acceleration derivatives
-        dadr = self.dacc_dr(r, v)
-        dadv = self.dacc_dv(r, v)
+        dadr = self.dacc_dr(r, v, beta)
+        dadv = self.dacc_dv(r, v, beta)
+        dadbeta = self.dacc_dbeta(r, v, beta)
         # total derivative
-        dfdx = np.zeros((6, 6))
+
+        dfdx = np.zeros((7, 7))
 
         # d(r_k+1)/dr
         for i in range(3):
             for j in range(3):
                 dfdx[i, j] = 0.5*pow(self.m.delta_t, 2)*dadr[i, j]
+            dfdx
         for i in range(3):
             dfdx[i, i] = 1 + dfdx[i, i]
 
@@ -139,6 +166,10 @@ class MHE:
                 dfdx[i, j+3] = 0.5*pow(self.m.delta_t, 2)*dadv[i, j]
         for i in range(3):
             dfdx[i, i+3] = self.m.delta_t + dfdx[i, i+3]
+
+        # d(r_k+1)/dbeta
+        for i in range(3):
+            dfdx[i, 6] = 0.5*(self.m.delta_t**2)*dadbeta[i]
 
         # d(v_k+1)/dr
         for i in range(3):
@@ -150,9 +181,16 @@ class MHE:
             for j in range(3):
                 dfdx[i+3, j+3] = self.m.delta_t*dadv[i, j]
         for i in range(3):
-            dfdx[i+3, i + 3] = 1 + dfdx[i+3, i + 3]
+            dfdx[i+3, i + 3] = dfdx[i+3, i + 3]
 
+        # d(v_k+1)/dbeta
+        for i in range(3):
+            dfdx[i+3, 6] = self.m.delta_t*dadbeta[i]
+
+        dfdx[6, 6] = 1
         return dfdx
+
+
 
 
     def dh(self, x):
@@ -160,7 +198,7 @@ class MHE:
         r = self.o.position_transform(x[0])
 
         norm_r = LA.norm(r)
-        dhdx = np.zeros((3,6))
+        dhdx = np.zeros((3, 7))
         dhdx[0, range(3)] = np.matmul(r, self.o.transform_M)/norm_r
 
         constant1 = 1/(np.sqrt(1-pow(r[2]/norm_r, 2)))
@@ -173,26 +211,28 @@ class MHE:
         return dhdx
 
 
-    def gradient(self, x_i):
+    def gradient(self, x):
 
-        grad = np.zeros(6)
+        grad = np.zeros(7)
 
-        if len(x_i) != len(self.x_apriori):
-            a = x_i
-            x_i = []
+        if len(x) != len(self.x_apriori):
             x_i = np.zeros((2,3))
-            for i in range(6): x_i[int(i / 3), i % 3] = a[i]
-        a = self.mu*np.array(x_i - self.x_apriori)
+            for i in range(6): x_i[int(i / 3), i % 3] = x[i]
+        beta_i = x[6]
+
+        a = self.mu1*np.array(x_i - self.x_apriori)
         for i in range(6): grad[i] = a[int(i/3), i%3]
+        grad[6] = self.mu3*(beta_i - self.beta_apriori)
+
         dfdx_i = []
         dhdx_i = []
         h_i = []
 
         for i in range(self.N):
-            dfdx_i.append(self.df(x_i))
+            dfdx_i.append(self.df(x_i, beta_i))
             dhdx_i.append(self.dh(x_i))
             h_i.append(self.o.h(x_i[0], 'off'))
-            x_i[0], x_i[1], a_i, self.beta = self.m.f(x_i[0], x_i[1], self.beta, 'off') # side note (we are computing an extra term)
+            x_i[0], x_i[1], a_i, beta_i = self.m.f(x_i[0], x_i[1], beta_i, 'off')
 
         dhdx_i.append(self.dh(x_i))
         h_i.append(self.o.h(x_i[0], 'off'))
@@ -201,8 +241,8 @@ class MHE:
         dfdx_i =np.array((dfdx_i))
         h_i = np.array(h_i)
 
-        # matrixR = np.array([[1 / self.y[0, 0], 0, 0], [0, 100 / self.y[0, 1], 0], [0, 0, 100 / self.y[0, 2]]])
-        matrixR = [[1,0,0],[0,1,0],[0,0,1]]
+        matrixR = np.array([[1 / self.y[0, 0], 0, 0], [0, 100 / self.y[0, 1], 0], [0, 0, 100 / self.y[0, 2]]])
+        # matrixR = [[1,0,0],[0,1,0],[0,0,1]]
         grad = grad + np.matmul(np.transpose(dhdx_i[0]), np.matmul(matrixR, h_i[0]-self.y[0]))
         for i in range(1, self.N+1):
             dfdx_mult = dfdx_i[0]
@@ -211,17 +251,12 @@ class MHE:
             for j in range(1, i):
                 dfdx_mult = np.matmul(dfdx_i[j], dfdx_mult)
 
-            A = np.matmul(dhdx_i[i], dfdx_mult) # dh(x_i)/dx_k-N
-            matrixR = [[1, 0, 0], [0, 1, 0], [0, 0, 1]]
-            # matrixR = np.array([[1 / self.y[i, 0], 0, 0], [0, 100 / self.y[i, 1], 0], [0, 0, 100 / self.y[i, 2]]])
+            A = np.matmul(dhdx_i[i], dfdx_mult) # dh(x_i)/dx_k-
+            # matrixR = [[1, 0, 0], [0, 1, 0], [0, 0, 1]]
+            matrixR = np.array([[1 / self.y[i, 0], 0, 0], [0, 100 / self.y[i, 1], 0], [0, 0, 100 / self.y[i, 2]]])
             B = np.matmul(matrixR, h_i[i] - self.y[i])
             C = np.matmul(np.transpose(A), B)
-            grad = grad + C
+            grad = grad + self.mu2*C
         grad = 2*grad
         return grad
-
-
-    
-
-
 

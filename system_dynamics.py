@@ -142,8 +142,8 @@ class dynamics:
         K3 = np.multiply(self.delta_t, self.dx(v+K2[0, :]/2, r+K2[1, :]/2))
         K4 = np.multiply(self.delta_t, self.dx(v+K3[0, :], r+K3[1, :]))
 
-        self.a = self.acceleration(self.v, self.r)
         self.v, self.r = [self.v, self.r] + (1/6)*(K1+2*K2+2*K3+K4)
+        self.a = self.acceleration(self.v, self.r)
         self.v = self.v.tolist()
         self.r = self.r.tolist()
         self.x.append([self.a, self.v, self.r])

@@ -15,22 +15,39 @@ class model:
         self.R = 6371e3
 
         self.delta_t = delta
-        self.beta_o = beta_o
 
-        self.dbeta = np.random.normal(0, pow(0.01 * self.beta_o, 2), size=1)
-        self.dr = np.random.normal(0, pow(self.delta_t, 3)/3 + 0.5*pow(self.delta_t, 2), size=1)
-        self.dv = np.random.normal(0, self.delta_t + 0.5*pow(self.delta_t, 2), size=1)
+        self.r = r_o
+        self.v = v_o
 
-        self.r = r_o + self.dr
-        self.r = self.r.tolist()
-        self.v = v_o + self.dv
-        self.v = self.v.tolist()
+        self.beta = beta_o
+        self.a = []
+        self.Sk = []
+        self.h = []
+        self.ballistic = []
 
-        self.beta = beta_o + self.dbeta
+    def reinitialise(self, y_minus1, y_o, o, measurement_lapse):
+        distance = y_o[0]
+        elevation = y_o[1]
+        azimuth = y_o[2]
+        rz = distance * np.sin(elevation)
+        rx = ((distance ** 2 - rz ** 2) / (1 + np.tan(azimuth) ** 2)) ** 0.5
+        ry = -rx * np.tan(azimuth)
+        r = np.matmul(np.linalg.inv(o.transform_M), [rx, ry, rz + o.R])
+
+        distance = y_minus1[0]
+        elevation = y_minus1[1]
+        azimuth = y_minus1[2]
+        rz = distance * np.sin(elevation)
+        rx = ((distance ** 2 - rz ** 2) / (1 + np.tan(azimuth) ** 2)) ** 0.5
+        ry = -rx * np.tan(azimuth)
+        rminus = np.matmul(np.linalg.inv(o.transform_M), [rx, ry, rz + o.R])
+
+        self.r = r
+        self.v = (r - rminus)/measurement_lapse
         self.a = self.acceleration(self.r, self.v, self.beta)
         self.Sk = [[self.r, self.v]]
-        self.h = [LA.norm(self.r)-self.R]
-        self.ballistic = [self.beta[0]]
+        self.h = [LA.norm(self.r) - self.R]
+        self.ballistic = [self.beta]
 
     def density_h(self, r):
         height = LA.norm(r) - self.R
@@ -47,59 +64,37 @@ class model:
 
     def acceleration(self, r, v, beta):
         a = -np.multiply((self.G*self.M)/pow(LA.norm(r), 3), r)
-        b = - np.multiply(self.density_h(r)*LA.norm(v)/(2*beta[0]), v)
+        b = - np.multiply(self.density_h(r)*LA.norm(v)/(2*beta), v)
         acc =  a + b
         return acc.tolist()
 
-    def f(self, r, v, a, beta, error='on'):
+    def f(self, r, v, beta, error='on', w=0):
+        a = self.acceleration(r, v, beta)
         if error == 'on':
-            self.dbeta = 0  # np.random.normal(0, pow(0.005 * self.beta_o, 2), size=1)
-            self.dr = np.random.normal(0, pow(self.delta_t, 3) / 3 + 0.5 * pow(self.delta_t, 2), size=1)
-            self.dv = np.random.normal(0, self.delta_t + 0.5 * pow(self.delta_t, 2), size=1)
+            dr = np.random.normal(0, pow(self.delta_t, 3) / 3 + 0.5 * pow(self.delta_t, 2), size=1)
+            dv = np.random.normal(0, self.delta_t + 0.5 * pow(self.delta_t, 2), size=1)
         elif error== 'off':
-            self.dbeta = 0
-            self.dr = 0
-            self.dv = 0
+            dr = 0
+            dv = 0
+        else:
+            print('Error: wrong argument. Use off to compute step update without random error. ')
+            sys.exit()
 
-        r_return = r + np.multiply(self.delta_t, v) + np.multiply(pow(self.delta_t, 2) / 2, a) + self.dr
+        r_return = r + np.multiply(self.delta_t, v) + np.multiply(pow(self.delta_t, 2) / 2, a) + dr
         r_return = r_return.tolist()
-        v_return = self.v + np.multiply(self.delta_t, a) + self.dv
+        v_return = self.v + np.multiply(self.delta_t, a) + dv
         v_return = v_return.tolist()
 
-        beta_return = beta #+ self.dbeta
-        a_return = self.acceleration(r, v, beta)
+        beta_return = beta + w #+ self.dbeta
+        a_return = self.acceleration(r_return, v_return, beta_return)
 
         return [r_return, v_return, a_return, beta_return]
 
 
-    def step_update(self):
-        self.r, self.v, self.a, self.beta = self.f(self.r, self.v, self.a, self.beta)
+    def step_update(self, error='on'):
+        self.r, self.v, self.a, self.beta = self.f(self.r, self.v, self.beta, error)
         self.Sk.append([self.r, self.v])
 
         # Variables used for plots
         self.h.append(LA.norm(self.r) - self.R)
-        self.ballistic.append(self.beta[0])
-
-    def reinitialise(self, y_real, o, measurement_lapse):
-        distance = y_real[len(y_real) - 1][0]
-        elevation = y_real[len(y_real) - 1][1]
-        azimuth = y_real[len(y_real) - 1][2]
-        rz = distance * np.sin(elevation)
-        rx = ((distance ** 2 - rz ** 2) / (1 + np.tan(azimuth) ** 2)) ** 0.5
-        ry = -rx * np.tan(azimuth)
-        r = np.matmul(np.linalg.inv(o.transform_M), [rx, ry, rz + o.R])
-
-        distance = y_real[len(y_real) - 2][0]
-        elevation = y_real[len(y_real) - 2][1]
-        azimuth = y_real[len(y_real) - 2][2]
-        rz = distance * np.sin(elevation)
-        rx = ((distance ** 2 - rz ** 2) / (1 + np.tan(azimuth) ** 2)) ** 0.5
-        ry = -rx * np.tan(azimuth)
-        rminus = np.matmul(np.linalg.inv(o.transform_M), [rx, ry, rz + o.R])
-
-        self.r = r
-        self.v = (r - rminus)/measurement_lapse
-        self.a = self.acceleration(self.r, self.v, self.beta)
-        self.Sk[len(self.Sk)-1] = [self.r, self.v]
-        self.h[len(self.h)-1] = LA.norm(self.r) - self.R
-        self.ballistic[len(self.ballistic)-1] = self.beta[0]
+        self.ballistic.append(self.beta)
