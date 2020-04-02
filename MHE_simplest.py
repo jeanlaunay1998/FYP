@@ -9,7 +9,7 @@ class MHE:
         self.o = observer  # copy direction of observer to access all function of the class
 
         self.alpha = 0.1  # random size of the step (to be changed by Hessian of the matrix)
-        self.N = 10  # number of points in the horizon
+        self.N = 15  # number of points in the horizon
         self.J = 0  # matrix to store cost function
         self.inter_steps = int(measurement_lapse/self.m.delta_t)
 
@@ -20,7 +20,9 @@ class MHE:
         self.beta = []
 
         self.x_solution = np.zeros((2, 3))
-        self.mu = 0.001
+        self.mu = 0.118074661e-3
+        self.matrixR = [[5e-32, 0, 0], [0, 1.21521675, 0], [0, 0, 1.28409]]
+
 
     def initialisation(self, y_measured, step):
         if step == self.N+1:
@@ -51,10 +53,9 @@ class MHE:
 
         for i in range(0, self.N+1):
 
-            # matrixR = np.array([[1/self.y[i, 0], 0, 0], [0, 1000/self.y[i, 1], 0], [0, 0, 100/self.y[i,2]]])
-            matrixR = [[1, 0, 0], [0, 1, 0], [0, 0, 1]]
-            J = J + pow(LA.norm(np.matmul(matrixR, (self.y[i] - self.o.h(x_iplus1[0], 'off')))), 2)
-
+            self.matrixR = np.array([[10/self.y[i, 0], 0, 0], [0, 10000/self.y[i, 1], 0], [0, 0, 1000/self.y[i,2]]])
+            # matrixR = [[1, 0, 0], [0, 1, 0], [0, 0, 1]]
+            J = J + pow(LA.norm(np.matmul(self.matrixR, (self.y[i] - self.o.h(x_iplus1[0], 'off')))), 2)
             # note that since the model perform steps of 0.01 secs the step update needs to be perform 1/0.01 times to
             # obtain the value at same measurement time
             for j in range(self.inter_steps):
@@ -150,7 +151,7 @@ class MHE:
             for j in range(3):
                 dfdx[i+3, j+3] = self.m.delta_t*dadv[i, j]
         for i in range(3):
-            dfdx[i+3, i + 3] = 1 + dfdx[i+3, i + 3]
+            dfdx[i+3, i + 3] = dfdx[i+3, i + 3]
 
         return dfdx
 
@@ -201,9 +202,9 @@ class MHE:
         dfdx_i =np.array((dfdx_i))
         h_i = np.array(h_i)
 
-        # matrixR = np.array([[1 / self.y[0, 0], 0, 0], [0, 100 / self.y[0, 1], 0], [0, 0, 100 / self.y[0, 2]]])
-        matrixR = [[1,0,0],[0,1,0],[0,0,1]]
-        grad = grad + np.matmul(np.transpose(dhdx_i[0]), np.matmul(matrixR, h_i[0]-self.y[0]))
+        self.matrixR = np.array([[10/self.y[i, 0], 0, 0], [0, 10000/self.y[i, 1], 0], [0, 0, 1000/self.y[i,2]]])
+        # self.matrixR = [[1,0,0],[0,1,0],[0,0,1]]
+        grad = grad + np.matmul(np.transpose(dhdx_i[0]), np.matmul(self.matrixR, h_i[0]-self.y[0]))
         for i in range(1, self.N+1):
             dfdx_mult = dfdx_i[0]
 
@@ -212,16 +213,16 @@ class MHE:
                 dfdx_mult = np.matmul(dfdx_i[j], dfdx_mult)
 
             A = np.matmul(dhdx_i[i], dfdx_mult) # dh(x_i)/dx_k-N
-            matrixR = [[1, 0, 0], [0, 1, 0], [0, 0, 1]]
-            # matrixR = np.array([[1 / self.y[i, 0], 0, 0], [0, 100 / self.y[i, 1], 0], [0, 0, 100 / self.y[i, 2]]])
-            B = np.matmul(matrixR, h_i[i] - self.y[i])
+            self.matrixR = np.array([[10/self.y[i, 0], 0, 0], [0, 10000/self.y[i, 1], 0], [0, 0, 1000/self.y[i,2]]])
+            # self.matrixR = [[1, 0, 0], [0, 1, 0], [0, 0, 1]]
+            B = np.matmul(self.matrixR, h_i[i] - self.y[i])
             C = np.matmul(np.transpose(A), B)
             grad = grad + C
         grad = 2*grad
         return grad
 
 
-    
+
 
 
 
