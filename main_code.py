@@ -98,7 +98,7 @@ while height > 5000 and t < t_lim:
             # print(opt.cost_function(opt.x_init))
 
             # --------------------------------------- #
-            # eps= 0.1
+            # eps= 0.01
             # plus_eps = [[d.r[0], d.r[1], d.r[2]], [d.v[0], d.v[1], d.v[2]], opt.beta+eps]
             # minus_eps = [[d.r[0], d.r[1], d.r[2]], [d.v[0], d.v[1], d.v[2]], opt.beta-eps]
             # A = np.zeros(7)
@@ -108,15 +108,17 @@ while height > 5000 and t < t_lim:
             # B[0:3], B[3:6], a, B[6] = m.f(minus_eps[0], minus_eps[1], minus_eps[2], 'off')
             # derivative1 = np.zeros(7)
             # for i in range(7): derivative1[i] = (A[i]-B[i])/(2*eps)
-            # plus_eps = [d.r[0], d.r[1], d.r[2], d.v[0], d.v[1], d.v[2], opt.beta+eps]
-            # minus_eps = [d.r[0], d.r[1], d.r[2], d.v[0], d.v[1], d.v[2], opt.beta-eps]
+            # plus_eps = [d.r[0]+eps, d.r[1], d.r[2], d.v[0], d.v[1], d.v[2]]#, opt.beta]
+            # minus_eps = [d.r[0]-eps, d.r[1], d.r[2], d.v[0], d.v[1], d.v[2]]#, opt.beta]
+            # print('A')
             # A = opt.cost_function(plus_eps)
+            # print('B')
             # B = opt.cost_function(minus_eps)
             # derivative1 = (A-B)/(2*eps)
             # print('numerical')
             # print(derivative1)
             # print('real')
-            # # print(opt.df([d.r, d.v], opt.beta)[:,6])
+            # print(opt1.df([d.r, d.v], opt.beta)[:,6])
             # print(opt.gradient([d.r[0], d.r[1], d.r[2], d.v[0], d.v[1], d.v[2], opt.beta]))
             # print(opt.beta)
             # print(d.beta[len(d.beta)-1])
@@ -138,17 +140,33 @@ while height > 5000 and t < t_lim:
             # --------------------------------------- #
 
             # store points to analyse later
-            state_estimate.append(np.copy([opt.x_solution[0], opt.x_solution[1]]))
-            state_estimate1.append(np.copy([opt1.x_solution[0], opt1.x_solution[1]]))
+            x_iplus1 = np.copy(opt.x_solution)
+            for i in range(0, opt.N):
+                for j in range(opt.inter_steps):
+                    x_iplus1[0], x_iplus1[1], no_interest, beta_i = m.f(x_iplus1[0], x_iplus1[1], m.beta, 'off')
+            # state_estimate.append(np.copy([opt.x_solution[0], opt.x_solution[1]]))
+            state_estimate.append(np.copy([x_iplus1[0], x_iplus1[1]])) # plot end of horizon
+
+            x_iplus1 = np.copy(opt1.x_solution)
+            for i in range(0, opt1.N):
+                for j in range(opt1.inter_steps):
+                    x_iplus1[0], x_iplus1[1], no_interest, beta_i = m.f(x_iplus1[0], x_iplus1[1], x_iplus1[2], 'off')
+            # state_estimate1.append(np.copy([opt1.x_solution[0], opt1.x_solution[1]]))
+            state_estimate1.append(np.copy([x_iplus1[0], x_iplus1[1]]))
+
             y_mhe.append(o.h(opt.x_solution[0], 'off'))
             y_mhe1.append(o.h(opt1.x_solution[0], 'off'))
             beta_estimation.append(opt.beta)
             beta_estimation1.append(opt1.x_solution[2])
-            time_est.append(t-opt.N*measurement_lapse)
+            # time_est.append(t-opt.N*measurement_lapse)
+            time_est.append(t)
 
-            # estimate_cost.append(opt.cost_function(opt.x_solution))
-            # true_cost.append(opt.cost_function(real_x[len(real_x)-1-opt.N]))
-            # model_cost.append(opt.cost_function(np.array(m.Sk[len(m.Sk)-1-opt.N*opt.inter_steps])))
+            estimate_cost.append(opt1.cost_function([opt.x_solution[0][0],opt.x_solution[0][1],opt.x_solution[0][2],opt.x_solution[1][0],opt.x_solution[1][1],opt.x_solution[1][2], m.beta]))
+            estimate_cost1.append(opt1.cost_function([opt1.x_solution[0][0],opt1.x_solution[0][1],opt1.x_solution[0][2],opt1.x_solution[1][0],opt1.x_solution[1][1],opt1.x_solution[1][2],opt1.x_solution[2]]))
+            z = len(real_x)-1-opt.N
+            true_cost.append(opt1.cost_function([real_x[z][0][0],real_x[z][0][1],real_x[z][0][2],real_x[z][1][0],real_x[z][1][1],real_x[z][1][2], m.beta]))
+            z = len(m.Sk)-1-opt.N*opt.inter_steps
+            model_cost.append(opt1.cost_function([m.Sk[z][0][0], m.Sk[z][0][1], m.Sk[z][0][2], m.Sk[z][1][0], m.Sk[z][1][1], m.Sk[z][1][2], m.beta]))
 
 # --------------------------------------- #
 # x_axis = range(len(mu1))
@@ -169,125 +187,177 @@ while height > 5000 and t < t_lim:
 
 plt.figure(1)
 time = np.linspace(0, t, len(d.beta))
-plt.plot(time, d.beta, 'g', label='Real ballistic coef')
-plt.plot(time_est, beta_estimation, 'r', label='Estimated ballistic coef')
-plt.plot(time_est, beta_estimation1, 'g', label='Estimated ballistic coef')
+plt.plot(time, d.beta, 'k', label='True system')
+plt.plot(time_est, beta_estimation, 'b', label='MHE 1 (or estimation model)')
+plt.plot(time_est, beta_estimation1, '--g', label='MHE 2', markersize=5)
 # plt.plot(time, m.ballistic, 'r', label='Ballistic coef')
 plt.legend(loc='best')
+plt.xlabel('Time (s)')
+plt.ylabel('Ballistic Coefficient')
 
-# plt.figure(2)
-# print(estimate_cost)
-# plt.plot(time_est, model_cost, 'r')
-# plt.plot(time_est, estimate_cost, 'b')
+# --------------------------------------- #
 
-# time = np.linspace(0, t, len(d.h))
-# plt.plot(time, d.h, 'b', label='Height real (m)')
-# plt.plot(time, m.h, 'r', label='Height model (m)')
-# plt.legend(loc='best')
+plt.figure(2)
+plt.plot(estimate_cost1, '--g', markersize=5, label='MHE 2')
+plt.plot(model_cost, 'r', label='Estimation model')
+plt.plot(estimate_cost, 'b', label='MHE 1')
+plt.legend(loc='best')
+plt.xlabel('Time (s)')
+plt.ylabel('Cost')
 
+# --------------------------------------- #
 fig, ax = plt.subplots(3,2)
 real = np.array(y_real)
 yplot = np.array(y_model)
 time = np.linspace(0, t, len(yplot))
-ax[0, 0].plot(time, real[:, 0], 'k', label='True distance')
-ax[1, 0].plot(time, real[:, 1], 'k', label='True elevation angle')
-ax[2, 0].plot(time, real[:, 2], 'k', label='True azimuth angle')
+ax[0, 0].plot(time, real[:, 0], 'k')
+ax[0, 0].set(xlabel='Time (s)', ylabel='d (m)')
+ax[1, 0].plot(time, real[:, 1], 'k')
+ax[1, 0].set(xlabel='Time (s)', ylabel='el (radians)')
+ax[2, 0].plot(time, real[:, 2], 'k', label='True system')
+ax[2, 0].set(xlabel='Time (s)', ylabel='az (radians)')
 
-ax[0, 0].plot(time, yplot[:, 0], 'r', label='Model distance')
-ax[1, 0].plot(time, yplot[:, 1], 'r', label='Model elevation angle')
-ax[2, 0].plot(time, yplot[:, 2], 'r', label='Model azimuth angle')
+ax[0, 0].plot(time, yplot[:, 0], 'r')
+ax[1, 0].plot(time, yplot[:, 1], 'r')
+ax[2, 0].plot(time, yplot[:, 2], 'r', label='Estimation model')
 
-ax[0, 1].plot(time, np.abs((real[:, 0] - yplot[:, 0])/real[:, 0]), 'r', label='Model distance error')
-ax[1, 1].plot(time, np.abs((real[:, 1] - yplot[:, 1])/real[:, 1]), 'r', label='Model elevation error')
-ax[2, 1].plot(time, np.abs((real[:, 2] - yplot[:, 2])/real[:, 2]), 'r', label='Model azimuth error')
+ax[0, 1].plot(time, np.abs((real[:, 0] - yplot[:, 0])/real[:, 0]), 'r')
+ax[1, 1].plot(time, np.abs((real[:, 1] - yplot[:, 1])/real[:, 1]), 'r')
+ax[2, 1].plot(time, np.abs((real[:, 2] - yplot[:, 2])/real[:, 2]), 'r')
 
 yplot = np.array(y_mhe)
-ax[0, 0].plot(time_est, yplot[:, 0], 'b', label='Estimated distance error')
-ax[1, 0].plot(time_est, yplot[:, 1], 'b', label='Estimated elevation error')
-ax[2, 0].plot(time_est, yplot[:, 2], 'b', label='Estimated azimuth error')
+ax[0, 0].plot(time_est, yplot[:, 0], 'b')
+ax[1, 0].plot(time_est, yplot[:, 1], 'b')
+ax[2, 0].plot(time_est, yplot[:, 2], 'b', label='MHE 1')
 
-ax[0, 1].plot(time_est, np.abs((real[0:len(yplot), 0] - yplot[:, 0])/real[0:len(yplot), 0]), 'b', label='Estimated distance error')
-ax[1, 1].plot(time_est, np.abs((real[0:len(yplot), 1] - yplot[:, 1])/real[0:len(yplot), 1]), 'b', label='Estimated elevation error')
-ax[2, 1].plot(time_est, np.abs((real[0:len(yplot), 2] - yplot[:, 2])/real[0:len(yplot), 2]), 'b', label='Estimated azimuth error')#
+# ax[0, 1].plot(time_est, np.abs((real[0:len(yplot), 0] - yplot[:, 0])/real[0:len(yplot), 0]), 'b', label='Estimated distance error')
+# ax[1, 1].plot(time_est, np.abs((real[0:len(yplot), 1] - yplot[:, 1])/real[0:len(yplot), 1]), 'b', label='Estimated elevation error')
+# ax[2, 1].plot(time_est, np.abs((real[0:len(yplot), 2] - yplot[:, 2])/real[0:len(yplot), 2]), 'b', label='Estimated azimuth error')#
+
+ax[0, 1].plot(time_est, np.abs((real[opt.N:len(real), 0] - yplot[:, 0])/real[opt.N:len(real), 0]), 'b')
+ax[1, 1].plot(time_est, np.abs((real[opt.N:len(real), 1] - yplot[:, 1])/real[opt.N:len(real), 1]), 'b')
+ax[2, 1].plot(time_est, np.abs((real[opt.N:len(real), 2] - yplot[:, 2])/real[opt.N:len(real), 2]), 'b')
 
 yplot = np.array(y_mhe1)
-ax[0, 0].plot(time_est, yplot[:, 0], 'g', label='Estimated distance error')
-ax[1, 0].plot(time_est, yplot[:, 1], 'g', label='Estimated elevation error')
-ax[2, 0].plot(time_est, yplot[:, 2], 'g', label='Estimated azimuth error')
+ax[0, 0].plot(time_est, yplot[:, 0], '--g', markersize=5)
+ax[1, 0].plot(time_est, yplot[:, 1], '--g', markersize=5)
+ax[2, 0].plot(time_est, yplot[:, 2], '--g', label='MHE 2', markersize=5)
 
-ax[0, 1].plot(time_est, np.abs((real[0:len(yplot), 0] - yplot[:, 0])/real[0:len(yplot), 0]), 'g', label='Estimated distance error')
-ax[1, 1].plot(time_est, np.abs((real[0:len(yplot), 1] - yplot[:, 1])/real[0:len(yplot), 1]), 'g', label='Estimated elevation error')
-ax[2, 1].plot(time_est, np.abs((real[0:len(yplot), 2] - yplot[:, 2])/real[0:len(yplot), 2]), 'g', label='Estimated azimuth error')#
-plt.legend(loc='best')
+# ax[0, 1].plot(time_est, np.abs((real[0:len(yplot), 0] - yplot[:, 0])/real[0:len(yplot), 0]), '--+g', label='Estimated distance error')
+# ax[1, 1].plot(time_est, np.abs((real[0:len(yplot), 1] - yplot[:, 1])/real[0:len(yplot), 1]), '--+', label='Estimated elevation error')
+# ax[2, 1].plot(time_est, np.abs((real[0:len(yplot), 2] - yplot[:, 2])/real[0:len(yplot), 2]), '--+g', label='Estimated azimuth error')#
+
+ax[0, 1].plot(time_est, np.abs((real[opt.N:len(real), 0] - yplot[:, 0])/real[opt.N:len(real), 0]), '--g', markersize=5)
+ax[0, 1].set(xlabel='Time (s)', ylabel='Error')
+ax[1, 1].plot(time_est, np.abs((real[opt.N:len(real), 1] - yplot[:, 1])/real[opt.N:len(real), 1]), '--g', markersize=5)
+ax[1, 1].set(xlabel='Time (s)', ylabel='Error')
+ax[2, 1].plot(time_est, np.abs((real[opt.N:len(real), 2] - yplot[:, 2])/real[opt.N:len(real), 2]), '--g', markersize=5)#
+ax[2, 1].set(xlabel='Time (s)', ylabel='Error')
+handles, labels = ax[2,0].get_legend_handles_labels()
+fig.legend(handles, labels, loc='upper center',  ncol=4)
 
 
+# --------------------------------------- #
 fig, ax = plt.subplots(3,2)
 real = np.array(real_x)
 yplot = np.array(m.Sk)
 time = np.linspace(0, t, len(yplot))
-ax[0, 0].plot(time, real[:, 0, 0], 'k', label='True position (r) x')
-ax[1, 0].plot(time, real[:, 0, 1], 'k', label='True position (r) y')
-ax[2, 0].plot(time, real[:, 0, 2], 'k', label='True position (r) z')
+ax[0, 0].plot(time, real[:, 0, 0], 'k')
+ax[1, 0].plot(time, real[:, 0, 1], 'k')
+ax[2, 0].plot(time, real[:, 0, 2], 'k', label='True system')
 
-ax[0, 0].plot(time, yplot[:, 0, 0], 'r', label='Model position (r) x')
-ax[1, 0].plot(time, yplot[:, 0, 1], 'r', label='Model position (r) y')
-ax[2, 0].plot(time, yplot[:, 0, 2], 'r', label='Model position (r) z')
+ax[0, 0].plot(time, yplot[:, 0, 0], 'r')
+ax[1, 0].plot(time, yplot[:, 0, 1], 'r')
+ax[2, 0].plot(time, yplot[:, 0, 2], 'r', label='Estimation Model')
 
-ax[0, 1].plot(time, np.abs((real[:, 0, 0] - yplot[:, 0, 0])/real[:, 0, 0]), 'r', label='Model x error')
-ax[1, 1].plot(time, np.abs((real[:, 0, 1] - yplot[:, 0, 1])/real[:, 0, 1]), 'r', label='Model y error')
-ax[2, 1].plot(time, np.abs((real[:, 0, 2] - yplot[:, 0, 2])/real[:, 0, 2]), 'r', label='Model z error')
+ax[0, 1].plot(time, np.abs((real[:, 0, 0] - yplot[:, 0, 0])/real[:, 0, 0]), 'r')
+ax[0, 1].set(xlabel='Time (s)', ylabel='Error')
+ax[1, 1].plot(time, np.abs((real[:, 0, 1] - yplot[:, 0, 1])/real[:, 0, 1]), 'r')
+ax[1, 1].set(xlabel='Time (s)', ylabel='Error')
+ax[2, 1].plot(time, np.abs((real[:, 0, 2] - yplot[:, 0, 2])/real[:, 0, 2]), 'r')
+ax[2, 1].set(xlabel='Time (s)', ylabel='Error')
 
 yplot = np.array(state_estimate)
-ax[0, 0].plot(time_est, yplot[:, 0, 0], 'b', label='Estimated position (r) x')
-ax[1, 0].plot(time_est, yplot[:, 0, 1], 'b', label='Estimated position (r) y')
-ax[2, 0].plot(time_est, yplot[:, 0, 2], 'b', label='Estimated position (r) z')
+ax[0, 0].plot(time_est, yplot[:, 0, 0], 'b')
+ax[1, 0].plot(time_est, yplot[:, 0, 1], 'b')
+ax[2, 0].plot(time_est, yplot[:, 0, 2], 'b', label='MHE 1')
 
-ax[0, 1].plot(time_est, np.abs((real[0:len(yplot), 0, 0] - yplot[:, 0, 0])/real[0:len(yplot), 0, 0]), 'b', label='Estimated x coordinate error')
-ax[1, 1].plot(time_est, np.abs((real[0:len(yplot), 0, 1] - yplot[:, 0, 1])/real[0:len(yplot), 0, 1]), 'b', label='Estimated y coordinate error')
-ax[2, 1].plot(time_est, np.abs((real[0:len(yplot), 0, 2] - yplot[:, 0, 2])/real[0:len(yplot), 0, 2]), 'b', label='Estimated z coordinate error')
+# ax[0, 1].plot(time_est, np.abs((real[0:len(yplot), 0, 0] - yplot[:, 0, 0])/real[0:len(yplot), 0, 0]), 'b', label='Estimated x coordinate error')
+# ax[1, 1].plot(time_est, np.abs((real[0:len(yplot), 0, 1] - yplot[:, 0, 1])/real[0:len(yplot), 0, 1]), 'b', label='Estimated y coordinate error')
+# ax[2, 1].plot(time_est, np.abs((real[0:len(yplot), 0, 2] - yplot[:, 0, 2])/real[0:len(yplot), 0, 2]), 'b', label='Estimated z coordinate error')
+
+ax[0, 1].plot(time_est, np.abs((real[opt.N:len(real), 0, 0] - yplot[:, 0, 0])/real[opt.N:len(real), 0, 0]), 'b')
+ax[1, 1].plot(time_est, np.abs((real[opt.N:len(real), 0, 1] - yplot[:, 0, 1])/real[opt.N:len(real), 0, 1]), 'b')
+ax[2, 1].plot(time_est, np.abs((real[opt.N:len(real), 0, 2] - yplot[:, 0, 2])/real[opt.N:len(real), 0, 2]), 'b')
 
 yplot = np.array(state_estimate1)
-ax[0, 0].plot(time_est, yplot[:, 0, 0], 'g', label='Estimated position (r) x')
-ax[1, 0].plot(time_est, yplot[:, 0, 1], 'g', label='Estimated position (r) y')
-ax[2, 0].plot(time_est, yplot[:, 0, 2], 'g', label='Estimated position (r) z')
+ax[0, 0].plot(time_est, yplot[:, 0, 0], '--g', markersize=5)
+ax[0, 0].set(xlabel='Time (s)', ylabel='Position x (m)')
+ax[1, 0].plot(time_est, yplot[:, 0, 1], '--g', markersize=5)
+ax[1, 0].set(xlabel='Time (s)', ylabel='Position y (m)')
+ax[2, 0].plot(time_est, yplot[:, 0, 2], '--g', label='MHE 2', markersize=5)
+ax[2, 0].set(xlabel='Time (s)', ylabel='Position z (m)')
 
-ax[0, 1].plot(time_est, np.abs((real[0:len(yplot), 0, 0] - yplot[:, 0, 0])/real[0:len(yplot), 0, 0]), 'g', label='Estimated x coordinate error')
-ax[1, 1].plot(time_est, np.abs((real[0:len(yplot), 0, 1] - yplot[:, 0, 1])/real[0:len(yplot), 0, 1]), 'g', label='Estimated y coordinate error')
-ax[2, 1].plot(time_est, np.abs((real[0:len(yplot), 0, 2] - yplot[:, 0, 2])/real[0:len(yplot), 0, 2]), 'g', label='Estimated z coordinate error')
-plt.legend(loc='best')
+# ax[0, 1].plot(time_est, np.abs((real[0:len(yplot), 0, 0] - yplot[:, 0, 0])/real[0:len(yplot), 0, 0]), '--+g', label='Estimated x coordinate error')
+# ax[1, 1].plot(time_est, np.abs((real[0:len(yplot), 0, 1] - yplot[:, 0, 1])/real[0:len(yplot), 0, 1]), '--+g', label='Estimated y coordinate error')
+# ax[2, 1].plot(time_est, np.abs((real[0:len(yplot), 0, 2] - yplot[:, 0, 2])/real[0:len(yplot), 0, 2]), '--+g', label='Estimated z coordinate error')
 
+
+ax[0, 1].plot(time_est, np.abs((real[opt.N:len(real), 0, 0] - yplot[:, 0, 0])/real[opt.N:len(real), 0, 0]), '--g', markersize=5)
+ax[1, 1].plot(time_est, np.abs((real[opt.N:len(real), 0, 1] - yplot[:, 0, 1])/real[opt.N:len(real), 0, 1]), '--g', markersize=5)
+ax[2, 1].plot(time_est, np.abs((real[opt.N:len(real), 0, 2] - yplot[:, 0, 2])/real[opt.N:len(real), 0, 2]), '--g', markersize=5)
+handles, labels = ax[2,0].get_legend_handles_labels()
+fig.legend(handles, labels, loc='upper center',  ncol=4)
+
+# --------------------------------------- #
 fig, ax = plt.subplots(3,2)
 yplot = np.array(m.Sk)
 time = np.linspace(0, t, len(yplot))
-ax[0, 0].plot(time, real[:, 1, 0], 'k', label='True velocity (v) x')
-ax[1, 0].plot(time, real[:, 1, 1], 'k', label='True velocity (v) y')
-ax[2, 0].plot(time, real[:, 1, 2], 'k', label='True velocity (v) z')
+ax[0, 0].plot(time, real[:, 1, 0], 'k')
+ax[1, 0].plot(time, real[:, 1, 1], 'k')
+ax[2, 0].plot(time, real[:, 1, 2], 'k', label='True system')
 
-ax[0, 0].plot(time, yplot[:, 1, 0], 'r', label='Model velocity (v) x')
-ax[1, 0].plot(time, yplot[:, 1, 1], 'r', label='Model velocity (v) y')
-ax[2, 0].plot(time, yplot[:, 1, 2], 'r', label='Model velocity (v) z')
+ax[0, 0].plot(time, yplot[:, 1, 0], 'r')
+ax[1, 0].plot(time, yplot[:, 1, 1], 'r')
+ax[2, 0].plot(time, yplot[:, 1, 2], 'r', label='Estimation model')
 
-ax[0, 1].plot(time, np.abs((real[:, 1, 0] - yplot[:, 1, 0])/real[:, 1, 0]), 'r', label='Model velocity error x')
-ax[1, 1].plot(time, np.abs((real[:, 1, 1] - yplot[:, 1, 1])/real[:, 1, 1]), 'r', label='Model velocity error y')
-ax[2, 1].plot(time, np.abs((real[:, 1, 2] - yplot[:, 1, 2])/real[:, 1, 2]), 'r', label='Model velocity error z')
+ax[0, 1].plot(time, np.abs((real[:, 1, 0] - yplot[:, 1, 0])/real[:, 1, 0]), 'r')
+ax[1, 1].plot(time, np.abs((real[:, 1, 1] - yplot[:, 1, 1])/real[:, 1, 1]), 'r')
+ax[2, 1].plot(time, np.abs((real[:, 1, 2] - yplot[:, 1, 2])/real[:, 1, 2]), 'r')
 
 yplot = np.array(state_estimate)
-ax[0, 0].plot(time_est, yplot[:, 1, 0], 'b', label='Estimated velocity (v) x')
-ax[1, 0].plot(time_est, yplot[:, 1, 1], 'b', label='Estimated velocity (v) y')
-ax[2, 0].plot(time_est, yplot[:, 1, 2], 'b', label='Estimated velocity (v) z')
+ax[0, 0].plot(time_est, yplot[:, 1, 0], 'b')
+ax[1, 0].plot(time_est, yplot[:, 1, 1], 'b')
+ax[2, 0].plot(time_est, yplot[:, 1, 2], 'b', label='MHE 1')
 
-ax[0, 1].plot(time_est, np.abs((real[0:len(yplot), 1, 0] - yplot[:, 1, 0])/real[0:len(yplot), 1, 0]), 'b', label='Estimated velocity error x')
-ax[1, 1].plot(time_est, np.abs((real[0:len(yplot), 1, 1] - yplot[:, 1, 1])/real[0:len(yplot), 1, 1]), 'b', label='Estimated velocity error y')
-ax[2, 1].plot(time_est, np.abs((real[0:len(yplot), 1, 2] - yplot[:, 1, 2])/real[0:len(yplot), 1, 2]), 'b', label='Estimated velocity error z')
+# ax[0, 1].plot(time_est, np.abs((real[0:len(yplot), 1, 0] - yplot[:, 1, 0])/real[0:len(yplot), 1, 0]), 'b', label='Estimated velocity error x')
+# ax[1, 1].plot(time_est, np.abs((real[0:len(yplot), 1, 1] - yplot[:, 1, 1])/real[0:len(yplot), 1, 1]), 'b', label='Estimated velocity error y')
+# ax[2, 1].plot(time_est, np.abs((real[0:len(yplot), 1, 2] - yplot[:, 1, 2])/real[0:len(yplot), 1, 2]), 'b', label='Estimated velocity error z')
+
+ax[0, 1].plot(time_est, np.abs((real[opt.N:len(real), 1, 0] - yplot[:, 1, 0])/real[opt.N:len(real), 1, 0]), 'b')
+ax[1, 1].plot(time_est, np.abs((real[opt.N:len(real), 1, 1] - yplot[:, 1, 1])/real[opt.N:len(real), 1, 1]), 'b')
+ax[2, 1].plot(time_est, np.abs((real[opt.N:len(real), 1, 2] - yplot[:, 1, 2])/real[opt.N:len(real), 1, 2]), 'b')
+
 
 yplot = np.array(state_estimate1)
-ax[0, 0].plot(time_est, yplot[:, 1, 0], 'g', label='Estimated velocity (v) x')
-ax[1, 0].plot(time_est, yplot[:, 1, 1], 'g', label='Estimated velocity (v) y')
-ax[2, 0].plot(time_est, yplot[:, 1, 2], 'g', label='Estimated velocity (v) z')
+ax[0, 0].plot(time_est, yplot[:, 1, 0], '--g', markersize=5)
+ax[0, 0].set(xlabel='Time (s)', ylabel='Velocity x (m/s)')
+ax[1, 0].plot(time_est, yplot[:, 1, 1], '--g', markersize=5)
+ax[1, 0].set(xlabel='Time (s)', ylabel='Velocity y (m/s)')
+ax[2, 0].plot(time_est, yplot[:, 1, 2], '--g', label='MHE 2', markersize=5)
+ax[2, 0].set(xlabel='Time (s)', ylabel='Velocity z (m/s)')
 
-ax[0, 1].plot(time_est, np.abs((real[0:len(yplot), 1, 0] - yplot[:, 1, 0])/real[0:len(yplot), 0, 0]), 'g', label='Estimated velocity error x')
-ax[1, 1].plot(time_est, np.abs((real[0:len(yplot), 1, 1] - yplot[:, 1, 1])/real[0:len(yplot), 0, 1]) , 'g', label='Estimated velocity error y')
-ax[2, 1].plot(time_est, np.abs((real[0:len(yplot), 1, 2] - yplot[:, 1, 2])/real[0:len(yplot), 0, 2]) , 'g', label='Estimated velocity error z')
-plt.legend(loc='best')
+# ax[0, 1].plot(time_est, np.abs((real[0:len(yplot), 1, 0] - yplot[:, 1, 0])/real[0:len(yplot), 1, 0]), '--g', label='Estimated velocity error x')
+# ax[1, 1].plot(time_est, np.abs((real[0:len(yplot), 1, 1] - yplot[:, 1, 1])/real[0:len(yplot), 1, 1]) , '--g', label='Estimated velocity error y')
+# ax[2, 1].plot(time_est, np.abs((real[0:len(yplot), 1, 2] - yplot[:, 1, 2])/real[0:len(yplot), 1, 2]) , '--g', label='Estimated velocity error z')
 
+
+ax[0, 1].plot(time_est, np.abs((real[opt.N:len(real), 1, 0] - yplot[:, 1, 0])/real[opt.N:len(real), 1, 0]), '--g', markersize=5)
+ax[0, 1].set(xlabel='Time (s)', ylabel='Error')
+ax[1, 1].plot(time_est, np.abs((real[opt.N:len(real), 1, 1] - yplot[:, 1, 1])/real[opt.N:len(real), 1, 1]), '--g', markersize=5)
+ax[1, 1].set(xlabel='Time (s)', ylabel='Error')
+ax[2, 1].plot(time_est, np.abs((real[opt.N:len(real), 1, 2] - yplot[:, 1, 2])/real[opt.N:len(real), 1, 2]), '--g', markersize=5)
+ax[2, 1].set(xlabel='Time (s)', ylabel='Error')
+handles, labels = ax[2,0].get_legend_handles_labels()
+fig.legend(handles, labels, loc='upper center',  ncol=4)
 plt.show()

@@ -10,7 +10,7 @@ class MHE_regularisation:
         self.o = observer  # copy direction of observer to access all function of the class
 
         self.alpha = 0.1  # random size of the step (to be changed by Hessian of the matrix)
-        self.N = 15  # number of points in the horizon
+        self.N = 20  # number of points in the horizon
         self.J = 0  # matrix to store cost function
         self.inter_steps = int(measurement_lapse/self.m.delta_t)
 
@@ -22,13 +22,15 @@ class MHE_regularisation:
         self.beta_apriori = self.m.beta
 
         self.x_solution = [0, 0, 0]
+        self.mu1 = 18.074661
+        self.mu2 = 5
+        self.R = [1000, 1000, 1000]
+        self.matrixR = []
         # -------------------------------------------------- #
-        self.R = [1, 1, 1]
         self.initial_coefs =[1,1,1,1,1]
+        self.real_x = []
+        self.real_beta = []
         # -------------------------------------------------- #
-        self.mu1 = 0.118074661e-3
-        self.mu2 = 0.98466e-4
-        self.matrixR = [[100000e-15, 0, 0], [0, 100*1.21521675, 0], [0, 0, 100*1.28409]]
 
 
     def initialisation(self, y_measured, step):
@@ -44,7 +46,7 @@ class MHE_regularisation:
 
         if step > self.N+1:
             self.y = np.array(y_measured)[step - self.N -1:step, :]
-            self.beta = self.m.beta #self.x_solution[2]  # update new initial guess of beta
+            self.beta_apriori = self.x_solution[2]  # update new initial guess of beta
             self.a = np.array(self.m.acceleration(self.x_solution[0], self.x_solution[1], self.beta))
             self.x_apriori[0], self.x_apriori[1], self.a, self.beta = self.m.f(self.x_solution[0], self.x_solution[1], self.beta, 'off')
             self.x_init[0:3] = self.x_apriori[0]
@@ -62,11 +64,12 @@ class MHE_regularisation:
             beta_i = x[6]
 
         x_iplus1 = np.copy(a)
-        J = self.mu1*(LA.norm(x_iplus1 - self.x_apriori)**2) + self.mu2*(self.beta_apriori-beta_i)**2
+        x_inverse = 1/self.x_apriori
+        J = self.mu1*(LA.norm((x_iplus1 - self.x_apriori)*x_inverse)**2) + self.mu2*(self.beta_apriori-beta_i)**2
 
         for i in range(0, self.N+1):
-            self.matrixR = np.array([[10/self.y[i, 0], 0, 0], [0, 10000/self.y[i, 1], 0], [0, 0, 1000/self.y[i,2]]])
-            # self.matrixR = [[1, 0, 0], [0, 1, 0], [0, 0, 1]]
+            self.matrixR = np.array([[self.R[0]/self.y[i, 0], 0, 0], [0, self.R[1]/self.y[i, 1], 0], [0, 0, self.R[2]/self.y[i,2]]])
+            # self.matrixR = [[1,0,0],[0,1,0],[0,0,1]]
             J = J + pow(LA.norm(np.matmul(self.matrixR, (self.y[i] - self.o.h(x_iplus1[0], 'off')))), 2)
 
             # note that since the model perform steps of 0.01 secs the step update needs to be perform 1/0.01 times to
@@ -78,17 +81,16 @@ class MHE_regularisation:
 
     def search(self, method='heuristic'):
         if method=='heuristic':
-            res = minimize(self.cost_function, self.x_init, method='Nelder-Mead', tol=1e-6)
+            res = minimize(self.cost_function, self.x_init, method='Nelder-Mead', tol=1e-3)
         elif method=='gradient':
-            res = minimize(self.cost_function, self.x_init, method='BFGS', jac=self.gradient, options={'gtol': 1e-30})
+            res = minimize(fun=self.cost_function, x0=self.x_init, method='BFGS', jac=self.gradient, options={'gtol': 1,  'maxiter':100})
         else:
             print('Error: Optimization method not recognized')
             sys.exit()
-        print(res.x)
+        print(['MHE 2:', res.success, LA.norm(res.jac)])
         self.x_solution[0] = [res.x[0], res.x[1], res.x[2]]
         self.x_solution[1] = [res.x[3], res.x[4], res.x[5]]
         self.x_solution[2] = res.x[6]
-        print('opt finished')
 
 
     def density_constants(self, height):
@@ -222,9 +224,11 @@ class MHE_regularisation:
             for i in range(6): x_i[int(i / 3), i % 3] = x[i]
         beta_i = x[6]
 
-        a = self.mu1*np.array(x_i - self.x_apriori)
+        x_inverse = (1/x_i)*(1/x_i)
+        a = self.mu1*x_inverse*np.array(x_i - self.x_apriori)
+
         for i in range(6): grad[i] = a[int(i/3), i%3]
-        grad[6] = self.mu2*(beta_i - self.beta)
+        grad[6] = self.mu2*(beta_i - self.beta_apriori)
 
         dfdx_i = []
         dhdx_i = []
@@ -243,9 +247,10 @@ class MHE_regularisation:
         dfdx_i =np.array((dfdx_i))
         h_i = np.array(h_i)
 
-        self.matrixR = np.array([[10/self.y[i, 0], 0, 0], [0, 10000/self.y[i, 1], 0], [0, 0, 1000/self.y[i,2]]])
-        # self.matrixR = [[1,0,0],[0,1,0],[0,0,1]]
-        grad = grad + np.matmul(np.transpose(dhdx_i[0]), np.matmul(self.matrixR, h_i[0]-self.y[0]))
+        self.matrixR = np.array([[self.R[0]/self.y[0, 0], 0, 0], [0, self.R[1]/self.y[0, 1], 0], [0, 0, self.R[2]/self.y[0,2]]])
+        # self.matrixR = [[1, 0, 0], [0, 1, 0], [0, 0, 1]]
+        grad = grad + np.matmul(np.transpose(dhdx_i[0]), np.matmul(np.matmul(self.matrixR,self.matrixR), h_i[0]-self.y[0]))
+
         for i in range(1, self.N+1):
             dfdx_mult = dfdx_i[0]
 
@@ -254,48 +259,39 @@ class MHE_regularisation:
                 dfdx_mult = np.matmul(dfdx_i[j], dfdx_mult)
 
             A = np.matmul(dhdx_i[i], dfdx_mult) # dh(x_i)/dx_k-
-            # self.matrixR = [[1, 0, 0], [0, 1, 0], [0, 0, 1]]
-            self.matrixR = np.array([[10/self.y[i, 0], 0, 0], [0, 10000/self.y[i, 1], 0], [0, 0, 1000/self.y[i,2]]])
-            B = np.matmul(self.matrixR, h_i[i] - self.y[i])
+            self.matrixR = np.array([[self.R[0]/self.y[i, 0], 0, 0], [0, self.R[1]/self.y[i, 1], 0], [0, 0, self.R[2]/self.y[i,2]]])
+            R_square = np.matmul(self.matrixR,self.matrixR)
+            B = np.matmul(R_square, h_i[i] - self.y[i])
             C = np.matmul(np.transpose(A), B)
             grad = grad + C
-        grad = 2*grad
+        grad = (2*grad)/LA.norm(grad)
+
         return grad
 
 
     def initialisation2(self, y_measured, real_x, real_beta, step):
 
-        self.y = np.array(y_measured)[step - self.N - 1:step, :]
-        self.x_init[0:3] = real_x[step - self.N - 1][0]
-        self.x_init[3:6] = real_x[step - self.N - 1][1]
-        self.x_init[6] = real_beta[step - self.N - 1]
+        # self.x_init[0:3] = real_x[step - self.N - 1][0]
+        # self.x_init[3:6] = real_x[step - self.N - 1][1]
+        # self.x_init[6] = real_beta[step - self.N - 1]
+        self.real_x = real_x[step - self.N - 1]
+        self.real_beta = real_beta[step - self.N - 2]
         self.initial_coefs = [1, 1, 1, 1, 1]
-
-        if step == self.N+1:
-            self.beta = self.m.beta  # Initial guess from model
-            self.x_apriori = np.array(self.m.Sk[len(self.m.Sk) - 1 - self.N * self.inter_steps])  # there is N-1 intervals over the horizon
-        elif step>=self.N+1:
-            self.beta = real_beta[step - self.N - 2]
-            self.x_apriori[0], self.x_apriori[1], a, b = self.m.f(real_x[step - self.N - 2][0],real_x[step - self.N - 2][1], self.m.beta)
-        self.a = np.array(self.m.acceleration(self.x_apriori[0], self.x_apriori[1], self.beta))  # change with acceleration function
 
     def real_cost(self, coefficients):
         R = [0, 0, 0]
         mu1, R[0], R[1], R[2], mu2 = coefficients
 
-        # built in optimisation function delivers the input in shape (6,1) when shape (2,3) is required
-        if len(self.x_init) != len(self.x_apriori):
-            a = np.zeros((2, 3))
-            for i in range(len(self.x_apriori)-1):
-                a[int(i/3), i%3] = self.x_init[i]
-            beta_i = self.x_init[6]
+        x_iplus1 = np.copy(self.real_x)
+        x_inverse = 1 / self.x_apriori
+        J = mu1 * (LA.norm((x_iplus1 - self.x_apriori) * x_inverse) ** 2) + mu2*(self.beta_apriori - self.real_beta) ** 2
 
-        x_iplus1 = np.copy(a)
-        J = np.abs(mu1)*(LA.norm(x_iplus1 - self.x_apriori)**2) + np.abs(mu2)*(self.beta_apriori-beta_i)**2
+        for i in range(0, self.N + 1):
+            self.matrixR = np.array(
+                [[R[0] / self.y[i, 0], 0, 0], [0, R[1] / self.y[i, 1], 0], [0, 0, R[2] / self.y[i, 2]]])
+            # self.matrixR = [[1,0,0],[0,1,0],[0,0,1]]
+            J = J + pow(LA.norm(np.matmul(self.matrixR, (self.y[i] - self.o.h(x_iplus1[0], 'off')))), 2)
 
-        matrixR = np.array([[np.abs(R[0]), 0, 0], [0, np.abs(R[1]), 0], [0, 0, np.abs(R[2])]])
-        for i in range(0, self.N+1):
-            J = J + self.mu2*pow(LA.norm(np.matmul(matrixR, (self.y[i] - self.o.h(x_iplus1[0], 'off')))), 2)
             # note that since the model perform steps of 0.01 secs the step update needs to be perform 1/0.01 times to
             # obtain the value at same measurement time
             for j in range(self.inter_steps):

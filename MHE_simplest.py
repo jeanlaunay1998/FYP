@@ -9,7 +9,7 @@ class MHE:
         self.o = observer  # copy direction of observer to access all function of the class
 
         self.alpha = 0.1  # random size of the step (to be changed by Hessian of the matrix)
-        self.N = 15  # number of points in the horizon
+        self.N = 20  # number of points in the horizon
         self.J = 0  # matrix to store cost function
         self.inter_steps = int(measurement_lapse/self.m.delta_t)
 
@@ -20,8 +20,9 @@ class MHE:
         self.beta = []
 
         self.x_solution = np.zeros((2, 3))
-        self.mu = 0.118074661e-3
-        self.matrixR = [[5e-32, 0, 0], [0, 1.21521675, 0], [0, 0, 1.28409]]
+        self.mu = 18.074661
+        self.R = [1000, 1000, 1000]
+        self.matrixR = []
 
 
     def initialisation(self, y_measured, step):
@@ -47,14 +48,14 @@ class MHE:
             a = np.zeros((2,3))
             for i in range(len(x)):
                 a[int(i/3), i%3] = x[i]
-            x = np.array(a)
-        J = self.mu*pow(LA.norm(x - self.x_apriori), 2)
-        x_iplus1 = np.copy(x)
+
+        x_iplus1 = np.copy(a)
+        x_inverse = 1 / self.x_apriori
+        J = self.mu * (LA.norm((x_iplus1 - self.x_apriori) * x_inverse) ** 2)
 
         for i in range(0, self.N+1):
 
-            self.matrixR = np.array([[10/self.y[i, 0], 0, 0], [0, 10000/self.y[i, 1], 0], [0, 0, 1000/self.y[i,2]]])
-            # matrixR = [[1, 0, 0], [0, 1, 0], [0, 0, 1]]
+            self.matrixR = np.array([[self.R[0]/self.y[i, 0], 0, 0], [0, self.R[1]/self.y[i, 1], 0], [0, 0, self.R[2]/self.y[i,2]]])
             J = J + pow(LA.norm(np.matmul(self.matrixR, (self.y[i] - self.o.h(x_iplus1[0], 'off')))), 2)
             # note that since the model perform steps of 0.01 secs the step update needs to be perform 1/0.01 times to
             # obtain the value at same measurement time
@@ -67,10 +68,11 @@ class MHE:
         if method=='heuristic':
             res = minimize(self.cost_function, self.x_init, method='Nelder-Mead', tol=1e-6)
         elif method=='gradient':
-            res = minimize(self.cost_function, self.x_init, method='BFGS', jac=self.gradient, options={'gtol': 1e-12})
+            res = minimize(self.cost_function, self.x_init, method='BFGS', jac=self.gradient, options={'gtol':1, 'maxiter':100})
         else:
             print('Error: Optimization method not recognized')
             sys.exit()
+        print(['MHE 2:', res.success, LA.norm(res.jac)])
         for j in range(6): self.x_solution[int(j / 3), j % 3] = res.x[j]
 
 
@@ -180,11 +182,13 @@ class MHE:
 
         if len(x_i) != len(self.x_apriori):
             a = x_i
-            x_i = []
             x_i = np.zeros((2,3))
             for i in range(6): x_i[int(i / 3), i % 3] = a[i]
-        a = self.mu*np.array(x_i - self.x_apriori)
+
+        x_inverse = (1 / x_i) * (1 / x_i)
+        a = self.mu * x_inverse * np.array(x_i - self.x_apriori)
         for i in range(6): grad[i] = a[int(i/3), i%3]
+
         dfdx_i = []
         dhdx_i = []
         h_i = []
@@ -202,9 +206,9 @@ class MHE:
         dfdx_i =np.array((dfdx_i))
         h_i = np.array(h_i)
 
-        self.matrixR = np.array([[10/self.y[i, 0], 0, 0], [0, 10000/self.y[i, 1], 0], [0, 0, 1000/self.y[i,2]]])
-        # self.matrixR = [[1,0,0],[0,1,0],[0,0,1]]
-        grad = grad + np.matmul(np.transpose(dhdx_i[0]), np.matmul(self.matrixR, h_i[0]-self.y[0]))
+        self.matrixR = np.array(
+            [[self.R[0] / self.y[0, 0], 0, 0], [0, self.R[1] / self.y[0, 1], 0], [0, 0, self.R[2] / self.y[0, 2]]])
+        grad = grad + np.matmul(np.transpose(dhdx_i[0]), np.matmul(np.matmul(self.matrixR,self.matrixR), h_i[0]-self.y[0]))
         for i in range(1, self.N+1):
             dfdx_mult = dfdx_i[0]
 
@@ -213,12 +217,12 @@ class MHE:
                 dfdx_mult = np.matmul(dfdx_i[j], dfdx_mult)
 
             A = np.matmul(dhdx_i[i], dfdx_mult) # dh(x_i)/dx_k-N
-            self.matrixR = np.array([[10/self.y[i, 0], 0, 0], [0, 10000/self.y[i, 1], 0], [0, 0, 1000/self.y[i,2]]])
-            # self.matrixR = [[1, 0, 0], [0, 1, 0], [0, 0, 1]]
-            B = np.matmul(self.matrixR, h_i[i] - self.y[i])
+            self.matrixR = np.array([[self.R[0]/self.y[i, 0], 0, 0], [0, self.R[1]/self.y[i, 1], 0], [0, 0, self.R[2]/self.y[i,2]]])
+            R_square = np.matmul(self.matrixR, self.matrixR)
+            B = np.matmul(R_square, h_i[i] - self.y[i])
             C = np.matmul(np.transpose(A), B)
             grad = grad + C
-        grad = 2*grad
+        grad = (2*grad)/LA.norm(grad)
         return grad
 
 
