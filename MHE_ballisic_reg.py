@@ -17,7 +17,6 @@ class MHE_regularisation:
         self.x_apriori = []
         self.x_init = np.zeros(7)
         self.y = []
-        self.a = []
         self.beta = self.m.beta
         self.beta_apriori = self.m.beta
 
@@ -26,6 +25,7 @@ class MHE_regularisation:
         self.mu2 = 5
         self.R = [1000, 1000, 1000]
         self.matrixR = []
+
         # -------------------------------------------------- #
         self.initial_coefs =[1,1,1,1,1]
         self.real_x = []
@@ -42,13 +42,11 @@ class MHE_regularisation:
             self.x_init[6] = np.copy(self.m.beta)
 
             self.beta = self.m.beta  # Initial guess from model
-            self.a = np.array(self.m.acceleration(self.x_apriori[0], self.x_apriori[1], self.beta))  # change with acceleration function
 
         if step > self.N+1:
             self.y = np.array(y_measured)[step - self.N -1:step, :]
             self.beta_apriori = self.x_solution[2]  # update new initial guess of beta
-            self.a = np.array(self.m.acceleration(self.x_solution[0], self.x_solution[1], self.beta))
-            self.x_apriori[0], self.x_apriori[1], self.a, self.beta = self.m.f(self.x_solution[0], self.x_solution[1], self.beta, 'off')
+            self.x_apriori[0], self.x_apriori[1], a, self.beta = self.m.f(self.x_solution[0], self.x_solution[1], self.beta, 'off')
             self.x_init[0:3] = self.x_apriori[0]
             self.x_init[3:6] = self.x_apriori[1]
             self.x_init[6] = self.x_solution[2]
@@ -75,7 +73,7 @@ class MHE_regularisation:
             # note that since the model perform steps of 0.01 secs the step update needs to be perform 1/0.01 times to
             # obtain the value at same measurement time
             for j in range(self.inter_steps):
-                x_iplus1[0], x_iplus1[1], self.a, beta_i = self.m.f(x_iplus1[0], x_iplus1[1], beta_i, 'off')
+                x_iplus1[0], x_iplus1[1], a, beta_i = self.m.f(x_iplus1[0], x_iplus1[1], beta_i, 'off')
         return J
 
 
@@ -83,7 +81,7 @@ class MHE_regularisation:
         if method=='heuristic':
             res = minimize(self.cost_function, self.x_init, method='Nelder-Mead', tol=1e-3)
         elif method=='gradient':
-            res = minimize(fun=self.cost_function, x0=self.x_init, method='BFGS', jac=self.gradient, options={'gtol': 1,  'maxiter':100})
+            res = minimize(fun=self.cost_function, x0=self.x_init, method='BFGS', jac=self.gradient, options={'gtol': 1e-2,  'maxiter':100})
         else:
             print('Error: Optimization method not recognized')
             sys.exit()
@@ -264,7 +262,7 @@ class MHE_regularisation:
             B = np.matmul(R_square, h_i[i] - self.y[i])
             C = np.matmul(np.transpose(A), B)
             grad = grad + C
-        grad = (2*grad)/LA.norm(grad)
+        grad = (2*grad)
 
         return grad
 
@@ -295,7 +293,7 @@ class MHE_regularisation:
             # note that since the model perform steps of 0.01 secs the step update needs to be perform 1/0.01 times to
             # obtain the value at same measurement time
             for j in range(self.inter_steps):
-                x_iplus1[0], x_iplus1[1], self.a, beta_i = self.m.f(x_iplus1[0], x_iplus1[1], beta_i, 'off')
+                x_iplus1[0], x_iplus1[1], a, beta_i = self.m.f(x_iplus1[0], x_iplus1[1], beta_i, 'off')
 
         J = J + (1/mu1) + (1/mu2) + (1/R[0]) + (1/R[1]) + (1/R[2])
         return J

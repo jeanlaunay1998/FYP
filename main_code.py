@@ -17,7 +17,7 @@ measurement_lapse = 0.5  # time lapse between every measurement
 
 height = 80e3
 d = dynamics(height, 22, 0, 6000, -5, 60)
-o = SateliteObserver(40.24, 3.42, d)
+o = SateliteObserver(40.24, 3.42)
 
 # initialise model with errors
 initialbeta = d.beta[0] + np.random.normal(0, 0.01*d.beta[0], size=1)[0]

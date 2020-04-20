@@ -68,7 +68,7 @@ class MHE:
         if method=='heuristic':
             res = minimize(self.cost_function, self.x_init, method='Nelder-Mead', tol=1e-6)
         elif method=='gradient':
-            res = minimize(self.cost_function, self.x_init, method='BFGS', jac=self.gradient, options={'gtol':1, 'maxiter':100})
+            res = minimize(self.cost_function, self.x_init, method='BFGS', jac=self.gradient, options={'gtol':1e-2, 'maxiter':100})
         else:
             print('Error: Optimization method not recognized')
             sys.exit()
@@ -222,7 +222,7 @@ class MHE:
             B = np.matmul(R_square, h_i[i] - self.y[i])
             C = np.matmul(np.transpose(A), B)
             grad = grad + C
-        grad = (2*grad)/LA.norm(grad)
+        grad = (2*grad)
         return grad
 
 

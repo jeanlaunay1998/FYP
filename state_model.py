@@ -45,7 +45,7 @@ class model:
         self.r = r
         self.v = (r - rminus)/measurement_lapse
         self.a = self.acceleration(self.r, self.v, self.beta)
-        self.Sk = [[self.r, self.v]]
+        self.Sk = [[self.r.tolist(), self.v.tolist()]]
         self.h = [LA.norm(self.r) - self.R]
         self.ballistic = [self.beta]
 
@@ -82,7 +82,7 @@ class model:
 
         r_return = r + np.multiply(self.delta_t, v) + np.multiply(pow(self.delta_t, 2) / 2, a) + dr
         r_return = r_return.tolist()
-        v_return = self.v + np.multiply(self.delta_t, a) + dv
+        v_return = v + np.multiply(self.delta_t, a) # + dv
         v_return = v_return.tolist()
 
         beta_return = beta + w #+ self.dbeta
