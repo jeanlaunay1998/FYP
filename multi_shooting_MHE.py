@@ -3,6 +3,7 @@ import numpy as np
 from newton_method import newton_iter_selection
 from newton_method import newton_iter
 import sys
+from scipy.optimize import minimize
 
 class multishooting:
     def __init__(self, estimation_model, true_system, observer, horizon, measurement_lapse):
@@ -16,8 +17,12 @@ class multishooting:
         # the state x = {r, v, beta}
         self.vars = np.ones((1+2*self.N)*7) # list of inputs to the optimization
         self.y = []  # list of true measurements across the horizon
-        self.pen = 10e-10  #10e6  # penalty factor
+        self.pen = 10e-5 # 10e-10  #10e6  # penalty factor
         self.pen1 = 0  # factor to remove Lagrangians (note this is highly inefficient since there will be un-used variables)
+        self.pen2 = 10e-5
+
+        self.reg1 = np.zeros(3)
+        self.reg2 = []
 
 
     def estimator_initilisation(self, step, y_measured):
@@ -35,6 +40,17 @@ class multishooting:
         J = 0
         h_i = []
         f_i = np.zeros((self.N+1)*7)
+
+        for i in range(3):
+            if np.abs(self.y[i])<1:
+                mult = 1
+                while mult*np.abs(self.y[i])<=1:
+                    mult = mult*10
+                self.reg1[i] = mult
+
+
+
+
         for i in range(0, 2*self.N+1, 2):
             h_i.append(self.o.h(var[i*7:i*7+3], 'off'))
             f_i[(i//2)*7:(i//2)*7+3], f_i[(i//2)*7+3:(i//2)*7+6], a, f_i[(i//2)*7+6] = self.m.f(var[i*7:i*7+3], var[i*7+3:i*7+6], var[i*7+6], 'off')
@@ -42,7 +58,8 @@ class multishooting:
         J = 0.5*LA.norm(self.y-h_i)**2
 
         for i in range(0, 2*self.N, 2):
-            J = J + self.pen1*np.matmul(var[(i+1)*7:(i+2)*7], var[(i+2)*7:(i+3)*7] - f_i[(i//2)*7:(i//2+1)*7]) + 0.5*self.pen*LA.norm(var[(i+2)*7:(i+3)*7] - f_i[(i//2)*7:(i//2+1)*7])**2
+            J = J + self.pen1*np.matmul(var[(i+1)*7:(i+2)*7], var[(i+2)*7:(i+3)*7] - f_i[(i//2)*7:(i//2+1)*7]) + 0.5*self.pen*LA.norm(var[(i+2)*7:(i+3)*7] - f_i[(i//2)*7:(i//2+1)*7])**2 \
+                + 0.5 * self.pen2*(var[i*7+6] - self.m.beta)**2
         return J
 
 
@@ -184,36 +201,40 @@ class multishooting:
 
         grad[0:7] = np.matmul(np.transpose(dh_i[0]), self.o.h(var[0:3], 'off')-self.y[0]) \
                     - np.matmul(np.transpose(df_i[0]), self.pen1*var[7:14] + self.pen*(var[2*7:3*7] - f_i[0]))
+        grad[6] = grad[6] + self.pen2*(var[6] - self.m.beta)
 
         for i in range(2,2*self.N,2):
             grad[(i-1)*7:i*7] = self.pen1*(var[i*7:(i+1)*7] - f_i[i//2-1]) # dJ/d(lambda)
             grad[i*7:(i+1)*7] = np.matmul(np.transpose(dh_i[i//2]), self.o.h(var[i*7:i*7+3], 'off')-self.y[i//2]) \
-                                - np.matmul(np.transpose(df_i[i//2]), self.pen1*var[(i+1)*7:(i+2)*7] + self.pen*(var[(i+2)*7:(i+3)*7] - f_i[i//2])) \
+                                - np.matmul(np.transpose(df_i[i//2]), self.pen1*var[(i+1)*7:(i+2)*7]) \
+                                - np.matmul(np.transpose(df_i[i//2]),self.pen*(var[(i+2)*7:(i+3)*7] - f_i[i//2]))\
                                 + self.pen*(var[i*7:(i+1)*7] - f_i[i//2-1]) + self.pen1*var[(i-1)*7:i*7]  # dJ/d(lambda)
+            grad[i*7+6] = grad[i*7+6] + self.pen2*(var[i*7+6]- self.m.beta)
 
         grad[(2*self.N -1)*7:(2 * self.N )*7] = self.pen1*(var[2*self.N*7:2*self.N*7+7] - f_i[self.N-1])
         grad[(2*self.N)*7:(2*self.N+1)*7] = np.matmul(np.transpose(dh_i[self.N]), self.o.h(var[2*self.N*7:2*self.N*7+3], 'off') - self.y[self.N]) \
                                             + self.pen*(var[2*self.N*7:(2*self.N+1)*7] - f_i[self.N-1]) + self.pen1*var[(2*self.N-1)*7:(2*self.N)*7]
+        grad[2*self.N*7+6] = grad[2*self.N*7+6] + self.pen2*(var[2*self.N*7+6] - self.m.beta)
+
         # checking method
         # for l in range(len(var)):
-            # eps = 10
-            #
-            # plus_eps = np.copy(var)
-            # plus_eps[l] = plus_eps[l]+eps
-            # minus_eps = np.copy(var)
-            # minus_eps[l] = minus_eps[l] - eps
-            #
-            # A = self.cost(plus_eps)
-            # B = self.cost(minus_eps)
-            # # print(A)
-            # # print(B)
-            # derivative = (A-B)/(2*eps)
-            # # print('numerical', derivative, 'analytical', grad[l])
-            # print(l, ': diff (%): ', 100*np.abs(np.divide(grad[l]-derivative, grad[l], out=np.zeros_like(grad[l]), where=grad[l]!=0)))
-            # # print(l, ': diff (%): ', 100*np.abs(np.divide(grad[l]-derivative, derivative, out=np.zeros_like(derivative), where=derivative!=0)))
-            # print('  analytical: ', grad[l], '; numerical: ', derivative)
+        #     if (l//7)%2 == 0:
+        #         eps = 10
+        #         plus_eps = np.copy(var)
+        #         plus_eps[l] = plus_eps[l]+eps
+        #         minus_eps = np.copy(var)
+        #         minus_eps[l] = minus_eps[l] - eps
+        #
+        #         A = self.cost(plus_eps)
+        #         B = self.cost(minus_eps)
+        #         # print(A)
+        #         # print(B)
+        #         derivative = (A-B)/(2*eps)
+        #         # print('numerical', derivative, 'analytical', grad[l])
+        #         print(l, ': diff (%): ', 100*np.abs(np.divide(grad[l]-derivative, grad[l], out=np.zeros_like(grad[l]), where=grad[l]!=0)))
+        #         # print(l, ': diff (%): ', 100*np.abs(np.divide(grad[l]-derivative, derivative, out=np.zeros_like(derivative), where=derivative!=0)))
+        #         print('  analytical: ', grad[l])#, '; numerical: ', derivative)
         # sys.exit()
-
         return grad
 
 
@@ -224,6 +245,7 @@ class multishooting:
         dhdx = self.dh(var[0:7])
         dfdx = self.dfdx(var[0:7])
         H[0:7, 0:7] = np.matmul(np.transpose(dhdx),dhdx) + self.pen*np.matmul(np.transpose(dfdx), dfdx)  # dJ/d(x^2)
+        H[6, 6] = H[6, 6] + self.pen2 # add beta penalty
         H[0:7, 2*7:3*7] = -self.pen*np.transpose(dfdx)  # dJ/d(x_i)d(x_i+1)
         H[0:7, 7:14] = -np.transpose(dfdx) * self.pen1  # dJ/dxd(lambda_i+1)
         H[7:14, 0:7] = -dfdx * self.pen1  # dJ/d(lambda)dx
@@ -235,6 +257,7 @@ class multishooting:
             dfdx = self.dfdx(var[i*7:(i+1)*7])
             H[i*7:(i+1)*7, i*7:(i+1)*7] = np.matmul(np.transpose(dhdx),dhdx) + self.pen * np.matmul(np.transpose(dfdx), dfdx) \
                                           + self.pen * np.identity(7)  # dJ/d(x_i^2)
+            H[i*7+6, i*7+6] = H[i*7+6, i*7+6] + self.pen2  # add penalty derivative
             H[i*7:(i+1)*7, (i+2)*7:(i+3)*7] = -self.pen*np.transpose(dfdx)  # dJ/d(x_i)d(x_i+1)
             H[i*7:(i+1)*7, (i-2)*7:(i-1)*7] = -self.pen*self.dfdx(var[(i-2)*7:(i-1)*7])  # dJ/d(x_i)d(x_i-1)
             H[i*7:(i+1)*7, (i+1)*7:(i+2)*7] = - np.transpose(dfdx) * self.pen1  # dJ/dxd(lambda_i+1)
@@ -245,25 +268,31 @@ class multishooting:
 
         dhdx = self.dh(var[(2*self.N)*7:(2*self.N+1)*7])
         H[(2*self.N)*7:(2*self.N+1)*7, (2*self.N)*7:(2*self.N+1)*7] = np.matmul(np.transpose(dhdx),dhdx) + self.pen * np.identity(7)  # dJ/d(x^2)
+        H[(2*self.N)*7+6, (2*self.N)*7+6] = H[(2*self.N)*7+6, (2*self.N)*7+6] + self.pen2  # add beta penalty
         H[(2*self.N)*7:(2*self.N+1)*7, (self.N*2-2)*7:(self.N*2-1)*7] = -self.pen*dfdx  # dJ/d(x_i)d(x_i-1)
         H[(2*self.N)*7:(2*self.N+1)*7, (2*self.N-1)*7:(2*self.N)*7] = np.identity(7) * self.pen1  # dJ/dxd(lambda_i))
 
         # checking method
         # for l in range(len(var)):
-        #     eps = 10
+        #     if (l // 7) % 2 == 0:
+        #         eps = 10
         #
-        #     plus_eps = np.copy(var)
-        #     plus_eps[l] = plus_eps[l]+eps
-        #     minus_eps = np.copy(var)
-        #     minus_eps[l] = minus_eps[l] - eps
+        #         plus_eps = np.copy(var)
+        #         plus_eps[l] = plus_eps[l]+eps
+        #         minus_eps = np.copy(var)
+        #         minus_eps[l] = minus_eps[l] - eps
         #
-        #     A = self.gradient(plus_eps)
-        #     B = self.gradient(minus_eps)
-        #     derivative = (A-B)/(2*eps)
-        #     # H[l, :] = derivative
-        #     print(l, ': max diff (%): ', 100*np.amax(np.abs(np.divide(H[l,: ] - derivative, H[l,: ], out=np.zeros_like(H[l,: ]), where=H[l,: ]!=0))))
-        #     # print('numerical', derivative)
-        #     # print('analytical', H[l, :])
+        #         A = self.gradient(plus_eps)
+        #         B = self.gradient(minus_eps)
+        #         derivative = (A-B)/(2*eps)
+        #         # H[l, :] = derivative
+        #         print(l, ': max diff (%): ', 100*np.amax(np.abs(np.divide(H[l,: ] - derivative, H[l,: ], out=np.zeros_like(H[l,: ]), where=H[l,: ]!=0))))
+        #         # print('numerical', derivative)
+        #         # print('analytical', H[l, :])
+        # print(LA.eigvals(H))
+        # sys.exit()
+
+        H = H + np.identity(len(H))*10e-7
         return H
 
     def slide_window(self, last_y):
@@ -286,21 +315,38 @@ class multishooting:
         #         x_try[i * 7 + j] = real_x[len(real_x) - (1 + self.N) * self.inter_steps + i // 2][1][
         #             j - 3]
         #     x_try[i * 7 + 6] = d.beta[len(d.beta)-1]
-        x_try = np.copy(self.vars)
+        # x_try = np.copy(self.vars)
 
+        cost_after = self.cost(self.vars)
+        cost_before = cost_after + 10
+        Niter = 0
+        # while np.abs(cost_before - cost_after)> 10e-2:
         for i in range(2):
-            # print('before')
-            # print(self.cost(self.vars))
+            Niter = Niter + 1
+            print('before')
+            cost_before = cost_after
+            print(cost_before)
             grad = self.gradient(self.vars)
             hess = self.hessian(self.vars)
             # self.vars = newton_iter(self.vars, grad, hess)
-            self.vars = newton_iter_selection(self.vars, grad, hess, self.N)
-            # print('after')
-            # print(self.cost(self.vars))
+            self.vars = newton_iter_selection(self.vars, grad, hess, cost_before, self.N)
+            # res = minimize(fun=self.cost, x0=self.vars, method='trust-ncg', jac=self.gradient, hess=self.hessian)
+            print('after')
+            # cost_after = self.cost(res.x)
+            cost_after = self.cost(self.vars)
 
-
-
-
+            # if cost_after > cost_before:
+            #     hessian = np.zeros(((self.N + 1) * 7, (self.N + 1) * 7))
+            #     for l in range(0, 2 * self.N + 1, 2):
+            #         for j in range(0, 2 * self.N + 1, 2):
+            #             hessian[(l // 2) * 7:(1 + l // 2) * 7, (j // 2) * 7:(1 + j // 2) * 7] = hess[l * 7:(l + 1) * 7, j * 7:(j + 1) * 7]
+            #     print('error starts here!!')
+            # print(LA.norm(hessian))
+            # for j in range(2, 2*self.N,2): print(grad[j*7:(j+1)*7])
+            # for j in range((self.N+1)*7): print(hessian[j,j])
+            print(cost_after)
+            # print(res)
+        print(Niter)
 
 
 

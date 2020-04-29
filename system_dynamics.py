@@ -117,7 +117,7 @@ class dynamics:
 
     def drag_coef(self, v, r):
         Re = self.reynolds(v,r)
-        Cd = (24/Re) + 2.6*(Re/5)/(1 + pow(Re/5, 152)) + 0.411*pow(Re/263000, -7.94)/(1 + pow(Re/263000, -8)) + pow(Re, 0.8)/461000
+        Cd = (24/Re) + 2.6*(Re/5)/(1 + pow(Re/5, 1.52)) + 0.411*pow(Re/263000, -7.94)/(1 + pow(Re/263000, -8)) + pow(Re, 0.8)/461000
         return Cd
 
 
