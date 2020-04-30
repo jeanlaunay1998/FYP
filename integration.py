@@ -8,12 +8,13 @@ from state_model import model
 from multi_shooting_MHE import multishooting
 from memory import Memory
 t_lim = 150
-N = 30  # size of the horizon
+N = 50  # size of the horizon
 measurement_lapse = 0.5  # time lapse between every measurement
 
 t = 0.00
 step = int(0)  # number of measurements measurements made
 delta = int(0)
+# import pdb; pdb.set_trace()
 
 height = 80e3
 d = dynamics(height, 22, 0, 6000, -5, 60)
@@ -52,7 +53,7 @@ while height > 5000 and t < t_lim:
             real_x = [[d.r, d.v]]
             real_beta = [d.beta[len(d.beta)-1]]
         else:
-            m.step_update('off')  # the model is updated every 0.5 seconds (problem with discretization)
+            m.step_update()  # the model is updated every 0.5 seconds (problem with discretization)
             y_real.append(o.h(d.r))
 
             # re-initialise model from taken measurements

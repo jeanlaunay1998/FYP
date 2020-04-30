@@ -2,7 +2,6 @@ import numpy as np
 # from scipy import linalg as LA
 from numpy import linalg as LA
 import sys
-# import sympy
 
 def newton_iter(x0, grad, hess):
     if LA.norm(grad) < 10e-4:
@@ -31,33 +30,23 @@ def newton_iter_selection(x0, grad, hess, cost, N):
         gradient[(i//2)*7:(i//2+1)*7] = grad[i*7:(i+1)*7]
         x_zero[(i//2)*7:(i//2+1)*7] = x0[i*7:(i+1)*7]
 
-    # print('max and min eigenvalues')
-    # print(np.amax(LA.eigvals(hessian)))
-    # print(np.amin(LA.eigvals(hessian)))
-    # print('--')
-    # print(np.amax(gradient))
-    # print(np.amin(gradient))
-    # print('--')
-    # print(np.amax(hessian))
-    # print(np.amin(hessian))
 
-    # if LA.det(hessian)==0:
-    #     print('eigenvalues')
-    #     lambdas, V = np.linalg.eig(hessian.T)
-    #     print('min')
-    #     print(np.amin(lambdas))
-    #     print(np.prod(lambdas))
-    #     print('loc')
-    #     for l in range(len(hessian)):
-    #         if np.all(hessian[l] == hessian[lambdas == np.amin(lambdas)]):
-    #             print('where true')
-    #             print(l)
-    #             print(l//7)
-    #             print(l%3)
-    #     print('sep')
-    #     print(LA.det(hessian))
-    #     print(LA.matrix_rank(hessian))
-    #     sys.exit()
+    if LA.det(hessian) == 0:
+        hessian = hessian + np.identity(len(hessian))*10e-7
+        print('-----------------------------')
+
+    # print('max and min eigenvalues')
+    # lambdas = LA.eigvals(hessian)
+    # print(lambdas)
+    # print(np.prod(LA.eigvals(hessian)))
+    # print(np.amax(lambdas)/np.amin(lambdas))
+    # for l in range(len(hessian)):
+    #     if np.all(hessian[l] == hessian[lambdas == np.amin(lambdas)]):
+    #         print('where true')
+    #         print(l)
+    #         print(l//7)
+    #         print(l%7)
+    #         print(hessian[l,l])
 
     # if not is_pos_def(hessian):
     #     print('negativve hessian')
@@ -72,27 +61,12 @@ def newton_iter_selection(x0, grad, hess, cost, N):
         output[i * 7:(i + 1) * 7] = x_zero[(i // 2) * 7:(i // 2 + 1) * 7]
     return output
 
+def limited_BFGS():
+    a =1
+
 
 def is_pos_def(x):
     return np.all(np.linalg.eigvals(x) > 0)
 
 
 
-    # mat= np.array(
-    #     [
-    #         [0, 1, 0, 0],
-    #         [0, 0, 1, 0],
-    #         [0, 1, 1, 0],
-    #         [1, 0, 0, 1]
-    #     ])
-
-    # The linearly dependent row vectors
-    # _, inds = sympy.Matrix(mat).T.rref()  # to check the rows you need to transpose!
-    # print(inds)
-    #
-    # sys.exit()
-    # lambdas, V = np.linalg.eig(hessian.T)
-    # # The linearly dependent row vector
-    # print(hessian[lambdas > 0, :])
-    #
-    # sys.exit()

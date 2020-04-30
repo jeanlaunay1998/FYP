@@ -29,7 +29,7 @@ class Memory:
         # ballistic coefficient plot
         plt.figure(1)
         plt.plot(self.t, real_beta[self.N:len(real_beta)], 'k', label='True system')
-        plt.plot(self.t, np.array(self.states)[:, self.N, 6], 'b', label='MHE')
+        plt.plot(self.t, np.array(self.states)[:, self.N, 6], '-+b', label='MHE')
         # plt.plot(self.t, beta_estimation1, '--g', label='MHE 2', markersize=5)
         # plt.plot(time, m.ballistic, 'r', label='Ballistic coef')
         plt.legend(loc='best')
