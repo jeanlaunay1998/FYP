@@ -1,16 +1,18 @@
 from numpy import linalg as LA
 import numpy as np
 from newton_method import newton_iter_selection
+from newton_method import BFGS
 from newton_method import newton_iter
 import sys
 from scipy.optimize import minimize
 
 class multishooting:
-    def __init__(self, estimation_model, true_system, observer, horizon, measurement_lapse):
+    def __init__(self, estimation_model, true_system, observer, horizon, measurement_lapse, pen1, pen2, opt_method='Newton'):
         self.N = horizon
         self.m = estimation_model
         self.d = true_system
         self.o = observer
+        self.method = opt_method
 
         self.inter_steps = int(measurement_lapse / self.m.delta_t)
 
@@ -24,8 +26,8 @@ class multishooting:
         self.reg1 = np.zeros(3)  # distance, azimuth, elevation
         self.reg2 = np.zeros(7)  # position, velocity and ballistic coeff
 
-        self.measurement_pen = [1e6, 1e-1, 1e-1]
-        self.model_pen = [1e4, 1e4, 1e4, 1e1, 1e1, 1e1, 1e0]
+        self.measurement_pen = pen1
+        self.model_pen = pen2
 
 
     def estimator_initilisation(self, step, y_measured):
@@ -79,8 +81,13 @@ class multishooting:
             self.reg2 = np.multiply(self.reg2, self.model_pen)
 
 
-    def cost(self, var):
-        J = 0
+    def cost(self, x):
+        if len(x) != len(self.vars):
+            var = np.ones((2*self.N+1)*7)
+            for i in range(0,2*self.N+1,2):
+                var[i*7:(i+1)*7] = x[7*i//2:(1+i//2)*7]
+        else:
+            var = np.copy(x)
         h_i = []
         f_i = np.zeros((self.N+1)*7)
 
@@ -225,7 +232,17 @@ class multishooting:
 
         return dhdx
 
-    def gradient(self, var):
+    def gradient(self, x):
+
+        if len(x) != len(self.vars):
+            var = np.ones((2*self.N+1)*7)
+            selection = 'on'
+            for i in range(0,2*self.N+1,2):
+                var[i*7:(i+1)*7] = x[7*i//2:(1+i//2)*7]
+        else:
+            selection = 'off'
+            var = np.copy(x)
+
         grad = np.zeros((1+2*self.N)*7)
         dh_i = []
         df_i = []
@@ -279,10 +296,27 @@ class multishooting:
         #
         # sys.exit()
 
-        return grad
+        if selection == 'on':
+            reduced_grad = np.ones((self.N+1)*7)
+            for i in range(0,2*self.N+1,2):
+                reduced_grad[7*i//2:(1+i//2)*7] = grad[i*7:(i+1)*7]
+            return reduced_grad
+        else:
+            return grad
 
 
-    def hessian(self, var):
+
+
+    def hessian(self, x):
+        if len(x) != len(self.vars):
+            var = np.ones((2*self.N+1)*7)
+            selection = 'on'
+            for i in range(0,2*self.N+1,2):
+                var[i*7:(i+1)*7] = x[7*i//2:(1+i//2)*7]
+        else:
+            selection = 'off'
+            var = np.copy(x)
+
         # The function assumes that the second derivatives of f and h are null
         H = np.zeros(((2*self.N+1)*7, (2*self.N+1)*7))
         R1 = np.multiply(np.identity(3), np.power(self.reg1, 2))
@@ -336,7 +370,15 @@ class multishooting:
         #         # print('numerical', derivative)
         #         # print('analytical', H[l, :])
 
-        return H
+        if selection == 'on':
+            reduced_H = np.ones(((self.N+1)*7,(self.N+1)*7))
+            for i in range(0, 2 * self.N + 1, 2):
+                for j in range(0, 2 * self.N + 1, 2):
+                    reduced_H[(i // 2) * 7:(1 + i // 2) * 7, (j // 2) * 7:(1 + j // 2) * 7] = H[i * 7:(i + 1) * 7,
+                                                                                            j * 7:(j + 1) * 7]
+            return reduced_H
+        else:
+            return H
 
     def slide_window(self, last_y):
         # slide horizon of predicted states
@@ -383,45 +425,97 @@ class multishooting:
             mult = mult * 10
         self.reg2[6] = 1 / mult
 
-        # self.reg1 = np.ones(3)
-        # self.reg2 = np.ones(7)
+        self.reg1 = np.ones(3)
+        self.reg2 = np.ones(7)
 
         self.reg1 = np.multiply(self.reg1, self.measurement_pen)
         self.reg2 = np.multiply(self.reg2, self.model_pen)
 
-
-
-
     def estimation(self):
-        cost_after = self.cost(self.vars)
-        cost_before = cost_after + 10
-        Niter = 0
-        # while np.abs(cost_before - cost_after)> 10e-2:
-        for i in range(2):
-            Niter = Niter + 1
-            cost_before = cost_after
-            # print('before')
-            # print(cost_before)
-            grad = self.gradient(self.vars)
-            hess = self.hessian(self.vars)
-            # self.vars = newton_iter(self.vars, grad, hess)
-            self.vars = newton_iter_selection(self.vars, grad, hess, cost_before, self.N)
-            cost_after = self.cost(self.vars)
-            # print('after')
-            # print(cost_after)
+        grad = self.gradient(self.vars)
+        hess = self.hessian(self.vars)
 
-            # if cost_after > cost_before:
-            #     hessian = np.zeros(((self.N + 1) * 7, (self.N + 1) * 7))
-            #     for l in range(0, 2 * self.N + 1, 2):
-            #         for j in range(0, 2 * self.N + 1, 2):
-            #             hessian[(l // 2) * 7:(1 + l // 2) * 7, (j // 2) * 7:(1 + j // 2) * 7] = hess[l * 7:(l + 1) * 7, j * 7:(j + 1) * 7]
-            #     print('error starts here!!')
-            # print(LA.norm(hessian))
-            # for j in range(2, 2*self.N,2): print(grad[j*7:(j+1)*7])
-            # for j in range((self.N+1)*7): print(hessian[j,j])
+        if self.method == 'BFGS':
+            self.vars = BFGS(self.vars, hess, self.cost, self.gradient, self.N)
+        elif self.method == 'Newton LS':
+            for i in range(10):
+                self.vars = newton_iter_selection(self.vars, grad, hess, self.N, self.cost, 'on')
+                grad = self.gradient(self.vars)
+                hess = self.hessian(self.vars)
+                # self.vars = newton_iter(self.vars, grad, hess)
+        elif self.method == 'Newton':
+            for i in range(10):
+                self.vars = newton_iter_selection(self.vars, grad, hess, self.N, self.cost, 'off')
+                grad = self.gradient(self.vars)
+                hess = self.hessian(self.vars)
+                # self.vars = newton_iter(self.vars, grad, hess)
+        elif self.method == 'Built-in optimizer':
+            # select vars
+            vars_select = np.zeros((self.N+1)*7)
+            for i in range(0, 2 * self.N + 1, 2):
+                vars_select[(i // 2) * 7:(i // 2 + 1) * 7] = self.vars[i * 7:(i + 1) * 7]
+            result = minimize(fun=self.cost, x0=vars_select, method='trust-ncg', jac=self.gradient, hess=self.hessian, options = {'maxiter': 50})
+
+            for i in range(0, 2 * self.N + 1, 2):
+                self.vars[i * 7:(i + 1) * 7] = result.x[(i // 2) * 7:(i // 2 + 1) * 7]
+        else:
+            print('Optimization method ' + self.method + ' non recognize')
+
+    def tuning_MHE(self, real_x, real_beta, step):
+        self.real_x = np.ones((1+2*self.N)*7)
+        for i in range(0, 2*self.N+1, 2):
+            for j in range(3):
+                self.real_x[i*7+j] = real_x[step-self.N-1 + i//2][0][j]
+            for j in range(3):
+                self.real_x[i*7+j+3] = real_x[step-self.N-1 + i//2][1][j]
+            self.real_x[i*7 + 6] = real_beta[i//2]
+        coeffs = []
+        for i in range(3): coeffs.append(self.measurement_pen[i])
+        for i in range(7): coeffs.append(self.model_pen[i])
+
+        tuning = minimize(self.tuning_cost, coeffs, method='Nelder-Mead', options = {'maxiter': 500} )
+        tuning.x = np.abs(tuning.x)
+        for i in range(3):
+            self.reg1[i] = self.reg1[i]*tuning.x[i]/self.measurement_pen[i]
+            self.measurement_pen[i] = tuning.x[i]
+        for i in range(7):
+            self.reg2[i] = self.reg2[i]*tuning.x[i+3]/self.model_pen[i]
+            self.model_pen[i] = tuning.x[i+3]
 
 
-        print(Niter)
+    def tuning_cost(self, coeffs):
+        reg1 = np.ones(3)
+        reg2 = np.ones(7)
+        for i in range(3):
+            reg1[i] = self.reg1[i]*coeffs[i]/np.abs(self.measurement_pen[i])
+        for i in range(7):
+            reg2[i] = self.reg2[i]*coeffs[i+3]/np.abs(self.model_pen[i])
+
+            a =1
+        h_i = []
+        f_i = np.zeros((self.N+1)*7)
+
+        for i in range(0, 2*self.N+1, 2):
+            h_i.append(self.o.h(self.real_x[i*7:i*7+3], 'off'))
+            f_i[(i//2)*7:(i//2)*7+3], f_i[(i//2)*7+3:(i//2)*7+6], a, f_i[(i//2)*7+6] = self.m.f(self.real_x[i*7:i*7+3], self.real_x[i*7+3:i*7+6], self.real_x[i*7+6], 'off')
+
+        J = 0
+
+        for i in range(self.N + 1):
+            J = J + 0.5 * LA.norm(np.multiply(reg1, self.y[i] - h_i[i]))**2
+
+        for i in range(0, 2*self.N, 2):
+            J = J + self.pen1*np.matmul(self.real_x[(i+1)*7:(i+2)*7], np.multiply(reg2, self.real_x[(i+2)*7:(i+3)*7] - f_i[(i//2)*7:(i//2+1)*7])) \
+                + 0.5*self.pen*LA.norm(np.multiply(reg2, self.real_x[(i+2)*7:(i+3)*7] - f_i[(i//2)*7:(i//2+1)*7]))**2 \
+                + 0.5 * self.pen2*(self.real_x[i*7+6] - self.m.beta)**2
+
+        for i in range(10):
+            J = J + np.abs(10/coeffs[i])
+        return J
+
+
+
+
 
 
 

@@ -25,7 +25,13 @@ class SateliteObserver:
     def position_transform(self, r):
         return np.matmul(self.transform_M, r) - [0, 0, self.R]
 
-    def h(self, r, error='on'):
+    def h(self, x, error='on'):
+        if len(x) != 3:
+            r = [x[0], x[1], x[2]]
+            error = 'off'
+        else:
+            r = x
+
         if error == 'on':
             sigma_d = np.random.normal(0, 50, size=1)
             sigma_el = np.random.normal(0, 1e-3, size=1)
@@ -44,5 +50,12 @@ class SateliteObserver:
         a = np.arctan(r_t[1]/(-r_t[0])) + sigma_az
         y[2] = a[0]
         return y
+
+    def h_inv(self, d, el, az):
+        rz = d * np.sin(el)
+        rx = ((d ** 2 - rz ** 2) / (1 + np.tan(az) ** 2)) ** 0.5
+        ry = -rx * np.tan(az)
+
+        return [rx, ry, rz]
 
 

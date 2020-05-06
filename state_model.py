@@ -68,7 +68,17 @@ class model:
         acc =  a + b
         return acc.tolist()
 
-    def f(self, r, v, beta, error='on', w=0):
+    def f(self, r, v=0, beta=0, error='on', w=0):
+        if len(r)!=3:
+            x = r
+            r = [x[0], x[1], x[2]]
+            v = [x[3], x[4], x[5]]
+            beta = x[6]
+            output_type = 1
+            error ='off'
+        else:
+            output_type = 0
+
         a = self.acceleration(r, v, beta)
         if error == 'on':
             dr = np.random.normal(0, pow(self.delta_t, 3) / 3 + 0.5 * pow(self.delta_t, 2), size=1)
@@ -88,7 +98,10 @@ class model:
         beta_return = beta + w #+ self.dbeta
         a_return = self.acceleration(r_return, v_return, beta_return)
 
-        return [r_return, v_return, a_return, beta_return]
+        if output_type == 0:
+            return [r_return, v_return, a_return, beta_return]
+        elif output_type == 1:
+            return  [r_return[0], r_return[1], r_return[2], v_return[0], v_return[1], v_return[2], beta_return]
 
 
     def step_update(self, error='on'):

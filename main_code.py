@@ -192,8 +192,6 @@ plt.plot(time_est, beta_estimation, 'b', label='MHE 1 (or estimation model)')
 plt.plot(time_est, beta_estimation1, '--g', label='MHE 2', markersize=5)
 # plt.plot(time, m.ballistic, 'r', label='Ballistic coef')
 plt.legend(loc='best')
-plt.xlabel('Time (s)')
-plt.ylabel('Ballistic Coefficient')
 
 # --------------------------------------- #
 
