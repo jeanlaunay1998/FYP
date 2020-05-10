@@ -74,8 +74,8 @@ class multishooting:
                 mult = mult * 10
             self.reg2[6] = 1 / mult
 
-            # self.reg1 = np.ones(3)
-            # self.reg2 = np.ones(7)
+            self.reg1 = np.ones(3)
+            self.reg2 = np.ones(7)
 
             self.reg1 = np.multiply(self.reg1, self.measurement_pen)
             self.reg2 = np.multiply(self.reg2, self.model_pen)
@@ -431,20 +431,23 @@ class multishooting:
         self.reg1 = np.multiply(self.reg1, self.measurement_pen)
         self.reg2 = np.multiply(self.reg2, self.model_pen)
 
-    def estimation(self):
+    def estimation(self, mea_pen, mod_pen):
+        self.reg1 = mea_pen
+        self.reg2 = mod_pen
+
         grad = self.gradient(self.vars)
         hess = self.hessian(self.vars)
 
         if self.method == 'BFGS':
             self.vars = BFGS(self.vars, hess, self.cost, self.gradient, self.N)
         elif self.method == 'Newton LS':
-            for i in range(10):
+            for i in range(150):
                 self.vars = newton_iter_selection(self.vars, grad, hess, self.N, self.cost, 'on')
                 grad = self.gradient(self.vars)
                 hess = self.hessian(self.vars)
                 # self.vars = newton_iter(self.vars, grad, hess)
         elif self.method == 'Newton':
-            for i in range(10):
+            for i in range(150):
                 self.vars = newton_iter_selection(self.vars, grad, hess, self.N, self.cost, 'off')
                 grad = self.gradient(self.vars)
                 hess = self.hessian(self.vars)

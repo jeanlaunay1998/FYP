@@ -2,42 +2,37 @@ import numpy.linalg as LA
 import numpy as np
 from filterpy.kalman import MerweScaledSigmaPoints
 from filterpy.kalman import UnscentedKalmanFilter as UKF
+from filterpy.kalman import ExtendedKalmanFilter
 import sys
 
 from system_dynamics import dynamics
 from observer import SateliteObserver
 from state_model import model
 from multi_shooting_MHE import multishooting
+from MS_MHE_PE import MS_MHE_PE
 from memory import Memory
 
-t_lim = 150
+t_lim = 100
 N = [20]  # size of the horizon
 measurement_lapse = 0.5  # time lapse between every measurement
 
 t = 0.00
 step = int(0)  # number of measurements measurements made
 delta = int(0)
-# import pdb; pdb.set_trace()
-
 height = 80e3
+
+# Initialisation of true dynamics and approximation model
 d = dynamics(height, 22, 0, 6000, -5, 60)
 o = SateliteObserver(40.24, 3.42)
 initialbeta = d.beta[0] + np.random.normal(0, 0.01*d.beta[0], size=1)[0]
 m = model(d.r, d.v, initialbeta, measurement_lapse)
 
-opt = []
-method = ['Newton LS']
-measurement_pen = [1e6, 1e-1, 1e-1]
-model_pen = [1e4, 1e4, 1e4, 1e1, 1e1, 1e1, 1e0]
-for i in range(len(N)):
-    opt.append(multishooting(m, d, o, N[i], measurement_lapse, measurement_pen, model_pen, method[i]))
-memory = Memory(o, N, len(N))
 
 # covariance matrices
 R = np.array([[50**2, 0, 0], [0, (1e-3)**2, 0], [0, 0, (1e-3)**2]]) # Measurement covariance matrix
 P0 = np.zeros((7,7))  # Initial covariance matrix
 Q = np.zeros((7,7))  # Process noise covariance matrix
-qa = 10 #  Estimated deviation of acceleration between real state and approximated state
+qa = 2 #  Estimated deviation of acceleration between real state and approximated state
 
 for i in range(3):
     P0[i,i] = 500**2
@@ -49,11 +44,33 @@ for i in range(3):
     Q[i+3, i+3] = qa*measurement_lapse
 P0[6,6] = 20**2
 Q[6,6] = 100
+
+
+# Initialisation of estimators
+opt = []
+method = ['Newton LS']
+measurement_pen = [1, 1e2, 1e3] #  [1e6, 1e-1, 1e-1] [0.06, 80, 80]
+model_pen = [1, 1, 1, 1e1, 1e1, 1e1, 1e2] # [1e4, 1e4, 1e4, 1e1, 1e1, 1e1, 1e0] [3, 3, 3, 1, 1, 1, 0.43] #
+for i in range(len(N)):
+    # opt.append(multishooting(m, d, o, N[i], measurement_lapse, measurement_pen, model_pen, method[i]))
+    opt.append(MS_MHE_PE(m, d, o, N[i], measurement_lapse, measurement_pen, model_pen,[P0, Q, R], opt_method=method[i]))
+memory = Memory(o, N, len(N))
+
+
+# unscented kalman filter
 points = MerweScaledSigmaPoints(n=7, alpha=.1, beta=2., kappa=-1)
 ukf = UKF(dim_x=7, dim_z=3, fx=m.f, hx=o.h, dt=measurement_lapse, points=points)
 ukf.P = P0
 ukf.Q = Q
 ukf.R = R
+
+
+# extended kalman filter
+ekf = ExtendedKalmanFilter(dim_x=7, dim_z=3, dim_u=0)
+ekf.P = P0
+ekf.Q = Q
+ekf.R = R
+
 
 
 time = [0]
@@ -86,7 +103,9 @@ while height > 5000 and t < t_lim:
 
             # initialisation of the unscented kalman filter
             ukf.x = np.array([m.r[0], m.r[1], m.r[2], m.v[0], m.v[1], m.v[2], m.beta])
+            ekf.x = np.array([m.r[0], m.r[1], m.r[2], m.v[0], m.v[1], m.v[2], m.beta])
             UKF_state = [np.copy(ukf.x)]
+            EKF_state = [np.copy(ukf.x)]
 
         else:
             m.step_update()  # the model is updated every 0.5 seconds (problem with discretization)
@@ -99,30 +118,29 @@ while height > 5000 and t < t_lim:
             real_beta.append(d.beta[len(d.beta) - 1])
 
             ukf.predict()
+            ekf.F = opt[0].dfdx(ekf.x)
+            ekf.predict(fx=m.f)
+
             ukf.update(y_real[len(y_real)-1])
+            ekf.update(z=y_real[len(y_real)-1], HJacobian=opt[0].dh, Hx=o.h)
             UKF_state.append(np.copy(ukf.x))
+            EKF_state.append(np.copy(ekf.x))
+
 
         for i in range(len(opt)):
             if step >= opt[i].N+1: # MHE is entered only when there exists sufficient measurements over the horizon
                 if step==opt[i].N+1:
                     opt[i].estimator_initilisation(step, y_real)
-                    opt[i].tuning_MHE(real_x, real_beta, step)
+                    # opt[i].tuning_MHE(real_x, real_beta, step)
                 else:
                     opt[i].slide_window(y_real[step-1])
-                    opt[i].tuning_MHE(real_x, real_beta, step)
-                penalties.append([opt[i].measurement_pen[0],opt[i].measurement_pen[1],opt[i].measurement_pen[2],\
-                                 opt[i].model_pen[0], opt[i].model_pen[1],opt[i].model_pen[2],opt[i].model_pen[3],opt[i].model_pen[4],opt[i].model_pen[5],opt[i].model_pen[6]])
+                    # opt[i].tuning_MHE(real_x, real_beta, step)
+                # measurementssss = np.array([coeff1[asdfg],coeff2[asdfg],coeff3[asdfg]])
+                # modelss = np.array([coeff4[asdfg], coeff5[asdfg],coeff6[asdfg], coeff7[asdfg], coeff8[asdfg], coeff9[asdfg], coeff10[asdfg]])
                 opt[i].estimation()
                 memory.save_data(t, opt[i].vars, o.h(m.r, 'off'), opt[i].cost(opt[i].vars), i)
 
-memory.make_plots(real_x, real_beta, y_real, m.Sk, UKF_state)
-
-import matplotlib.pyplot as plt
-fig, ax = plt.subplots(5, 2)
-x = np.linspace(0, 15, len(penalties))
-for i in range(10):
-    ax[i%5, i//5].plot(np.array(penalties)[:][i])
-plt.show()
+memory.make_plots(real_x, real_beta, y_real, m.Sk, UKF_state, EKF_state)
 
 # ----------------------------------------------------------------------------------------------------- #
 
