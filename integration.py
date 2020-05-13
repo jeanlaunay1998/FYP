@@ -3,7 +3,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 from filterpy.kalman import MerweScaledSigmaPoints
 from filterpy.kalman import UnscentedKalmanFilter as UKF
-from filterpy.kalman import ExtendedKalmanFilter
+# from filterpy.kalman import ExtendedKalmanFilter
+from extendedKF import ExtendedKalmanFilter
 import sys
 
 from system_dynamics import dynamics
@@ -145,15 +146,15 @@ while height > 5000 and t < t_lim:
             if step >= opt[i].N+1: # MHE is entered only when there exists sufficient measurements over the horizon
                 if step==opt[i].N+1:
                     opt[i].estimator_initilisation(step, y_real)
-                    asdfg = 0
+                    # asdfg = 0
                 else:
                     opt[i].slide_window(y_real[step-1])
-                    asdfg = asdfg +1
+                    # asdfg = asdfg +1
 
                 # coeffs.append(np.copy(opt[i].tuning_MHE(real_x, real_beta, step)))
-                measurementssss = np.array([coeff1[asdfg],coeff2[asdfg],coeff3[asdfg]])
-                modelss = np.array([coeff4[asdfg], coeff4[asdfg],coeff4[asdfg], coeff7[asdfg], coeff7[asdfg], coeff7[asdfg], coeff10[asdfg]])
-                opt[i].estimation(measurementssss, modelss)
+                # measurementssss = np.array([coeff1[asdfg],coeff2[asdfg],coeff3[asdfg]])
+                # modelss = np.array([coeff4[asdfg], coeff4[asdfg],coeff4[asdfg], coeff7[asdfg], coeff7[asdfg], coeff7[asdfg], coeff10[asdfg]])
+                opt[i].estimation()
                 memory.save_data(t, opt[i].vars, o.h(m.r, 'off'), opt[i].cost(opt[i].vars), i)
 
 memory.make_plots(real_x, real_beta, y_real, m.Sk, UKF_state, EKF_state)
@@ -163,7 +164,3 @@ memory.make_plots(real_x, real_beta, y_real, m.Sk, UKF_state, EKF_state)
 #     ax[i%5,i//5].plot(np.array(coeffs)[:,i])
 # plt.show()
 # ----------------------------------------------------------------------------------------------------- #
-
-
-
-

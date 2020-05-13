@@ -32,8 +32,8 @@ class MS_MHE_PE:
         self.pen1 = 0  # factor to remove Lagrangians (note this is highly inefficient since there will be un-used variables)
         self.pen2 = 0  # 10e-5
 
-        self.reg1 = np.zeros(3)  # distance, azimuth, elevation
-        self.reg2 = np.zeros(7)  # position, velocity and ballistic coeff
+        self.reg1 = np.identity(3)  # distance, azimuth, elevation
+        self.reg2 = np.identity(7)  # position, velocity and ballistic coeff
 
         self.measurement_pen = pen1
         self.model_pen = pen2
@@ -63,8 +63,39 @@ class MS_MHE_PE:
             self.K_horizon.append(self.ekf.K)
         self.P_end = self.ekf.P
 
-        self.reg1 = np.ones(3)
-        self.reg2 = np.ones(7)
+        # it is assumed that the horizon is sufficiently small such that all measurements are of the same order at
+        # end and beginning of the horizon
+        # measurements reg
+
+        for i in range(3):
+            if np.abs(self.y[0, i]) < 1:
+                mult = 1
+                while mult * np.abs(self.y[0, i]) <= 1:
+                    mult = mult * 10
+                self.reg1[i,i] = self.measurement_pen[i] * mult
+            else:
+                mult = 1
+                while np.abs(self.y[0, i]) // mult >= 10:
+                    mult = mult * 10
+                self.reg1[i,i] = self.measurement_pen[i] / mult
+
+        # position and velocity reg
+        for i in range(2):
+            mult = 1
+            if np.abs(self.vars[i * 3]) < 1:
+                while mult * np.abs(self.vars[i * 3]) <= 1:
+                    mult = mult * 10
+                for j in range(3): self.reg2[i*3 + j, i*3 + j] =  self.model_pen[i*3+j] * mult
+            else:
+                while np.abs(self.vars[i * 3]) // mult >= 10:
+                    mult = mult * 10
+                for j in range(3): self.reg2[i*3 + j, i*3 + j] = self.model_pen[i*3+j] / mult
+
+        # ballistic coeff reg
+        mult = 1
+        while np.abs(self.vars[6]) // mult >= 10:
+            mult = mult * 10
+        self.reg2[6, 6] = self.model_pen[6] / mult
 
         # self.reg1 = np.multiply(self.reg1, self.measurement_pen)
         # self.reg2 = np.multiply(self.reg2, self.model_pen)
@@ -285,8 +316,12 @@ class MS_MHE_PE:
             dh_i.append(self.dh(var[i*7:(i+1)*7]))
         dh_i.append(self.dh(var[self.N*7:(self.N+1)*7]))
 
-        R1 = np.power(self.reg1, 2)
-        R2 = np.power(self.reg2, 2)
+        R1 = np.zeros((3,3))
+        R2 = np.zeros((7,7))
+        for i in range(3):
+            R1[i,:] = self.reg1[i,:]*self.reg1[i,i]
+        for i in range(7):
+            R2[i,:] = self.reg2[i,:]*self.reg2[i,i]
 
         grad[0:7] = np.matmul(np.transpose(dh_i[0]), np.multiply(R1, self.o.h(var[0:3], 'off') - self.y[0])) \
                     - np.matmul(np.transpose(dg_i[0]), self.pen*np.multiply(R2, var[7:2*7] - g_i[0]))  # dJ/dx
@@ -322,8 +357,12 @@ class MS_MHE_PE:
 
         # The function assumes that the second derivatives of f and h are null
         H = np.zeros(((self.N+1)*7, (self.N+1)*7))
-        R1 = np.multiply(np.identity(3), np.power(self.reg1, 2))
-        R2 = np.multiply(np.identity(7), np.power(self.reg2, 2))
+        R1 = np.zeros((3,3))
+        R2 = np.zeros((7,7))
+        for i in range(3):
+            R1[i,:] = self.reg1[i,:]*self.reg1[i,i]
+        for i in range(7):
+            R2[i,:] = self.reg2[i,:]*self.reg2[i,i]
 
         self.ekf.P = np.copy(self.P0)
         results = self.dgdx(x=var[0:7], P_i=self.ekf.P, y_i=self.y[1])
@@ -385,11 +424,39 @@ class MS_MHE_PE:
         self.ekf.update(z=last_y, HJacobian=self.dh, Hx=self.o.h)
         self.vars[self.N * 7:self.N * 7 + 7] = self.ekf.x # new value obtained at t = k+1  from x_k+1 = g(x_sol_k)
 
-        self.reg1 = np.ones(3)
-        self.reg2 = np.ones(7)
+        # it is assumed that the horizon is sufficiently small such that all measurements are of the same order at
+        # end and beginning of the horizon
+        # measurements reg
 
-        # self.reg1 = np.multiply(self.reg1, self.measurement_pen)
-        # self.reg2 = np.multiply(self.reg2, self.model_pen)
+        for i in range(3):
+            if np.abs(self.y[0, i]) < 1:
+                mult = 1
+                while mult * np.abs(self.y[0, i]) <= 1:
+                    mult = mult * 10
+                self.reg1[i,i] = self.measurement_pen[i] * mult
+            else:
+                mult = 1
+                while np.abs(self.y[0, i]) // mult >= 10:
+                    mult = mult * 10
+                self.reg1[i,i] = self.measurement_pen[i] / mult
+
+        # position and velocity reg
+        for i in range(2):
+            mult = 1
+            if np.abs(self.vars[i * 3]) < 1:
+                while mult * np.abs(self.vars[i * 3]) <= 1:
+                    mult = mult * 10
+                for j in range(3): self.reg2[i*3 + j, i*3 + j] =  self.model_pen[i*3+j] * mult
+            else:
+                while np.abs(self.vars[i * 3]) // mult >= 10:
+                    mult = mult * 10
+                for j in range(3): self.reg2[i*3 + j, i*3 + j] = self.model_pen[i*3+j] / mult
+
+        # ballistic coeff reg
+        mult = 1
+        while np.abs(self.vars[6]) // mult >= 10:
+            mult = mult * 10
+        self.reg2[6, 6] = self.model_pen[6] / mult
 
     def estimation(self):
         grad = self.gradient(self.vars)
@@ -488,14 +555,3 @@ class MS_MHE_PE:
         for i in range(10):
             J = J + np.abs(10/coeffs[i])
         return J
-
-
-
-
-
-
-
-
-
-
-

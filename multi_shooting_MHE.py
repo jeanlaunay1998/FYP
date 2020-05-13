@@ -451,11 +451,6 @@ class multishooting:
             mult = mult * 10
         self.reg2[6, 6] = self.model_pen[6] / mult
 
-        # self.reg1 = np.ones(3)
-        # self.reg2 = np.ones(7)
-        #
-        # self.reg1 = np.multiply(self.reg1, self.measurement_pen)
-        # self.reg2 = np.multiply(self.reg2, self.model_pen)
 
     def estimation(self, mea_pen=[], mod_pen=[]):
         # self.reg1 = mea_pen
@@ -579,7 +574,3 @@ class multishooting:
 # while np.abs(self.vars[6]) // mult >= 10:
 #     mult = mult * 10
 # self.reg2[6] = 1 / mult
-
-
-
-
