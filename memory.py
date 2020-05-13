@@ -15,18 +15,17 @@ class Memory:
             self.states.append([])
             self.y_estimates.append([])
             self.cost.append([])
-
-
         self.size = estimator_number
 
     def save_data(self, time, vars, y_model, cost, number):
         ys = []
         xs = []
-        for i in range(0,self.N[number]+1):
+        # for i in range(0,self.N[number]+1):
+        for i in range(0,2*self.N[number]+1,2):
             ys.append(self.o.h(vars[i*7:i*7+3], 'off'))
             xs.append(vars[i*7:(i+1)*7])
 
-        self.states[number].append(xs)
+        self.states[number].append(np.copy(xs))
         self.y_estimates[number].append(ys)
         self.cost[number].append(cost)
         if number == 0:
@@ -37,8 +36,8 @@ class Memory:
         kf_y = []
         ekf_y = []
         for i in range(len(KF_states)):
-            kf_y.append(KF_states[i])
-            ekf_y.append(EKF_states[i])
+            kf_y.append(self.o.h(KF_states[i]))
+            ekf_y.append(self.o.h(EKF_states[i]))
 
         labelstring = []
         method = ['Newton LS', 'Newton']
@@ -56,7 +55,6 @@ class Memory:
         plt.legend(loc='best')
         plt.xlabel('Time (s)')
         plt.ylabel('Ballistic Coefficient')
-        plt.ylim((0,1000))
 
         # Measurements plot
         fig, ax = plt.subplots(3, 2)

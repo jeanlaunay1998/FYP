@@ -2,6 +2,7 @@ from numpy import linalg as LA
 import numpy as np
 from newton_method import newton_iter_selection
 from newton_method import BFGS
+from newton_method import gradient_search
 from filterpy.kalman import ExtendedKalmanFilter as EKF
 from newton_method import newton_iter
 import sys
@@ -65,8 +66,8 @@ class MS_MHE_PE:
         self.reg1 = np.ones(3)
         self.reg2 = np.ones(7)
 
-        self.reg1 = np.multiply(self.reg1, self.measurement_pen)
-        self.reg2 = np.multiply(self.reg2, self.model_pen)
+        # self.reg1 = np.multiply(self.reg1, self.measurement_pen)
+        # self.reg2 = np.multiply(self.reg2, self.model_pen)
 
 
     def cost(self, var):
@@ -369,6 +370,7 @@ class MS_MHE_PE:
 
 
     def slide_window(self, last_y):
+        self.P_end, self.P0 = self.last_covariance()
         # slide horizon of measurements
         self.y[0:self.N] = self.y[1:self.N+1]
         self.y[self.N] = last_y
@@ -378,8 +380,6 @@ class MS_MHE_PE:
 
         self.ekf.P = self.P_end
         self.ekf.x = self.vars[self.N*7:(self.N+1)*7]
-        # print(self.ekf.x)
-
         self.ekf.F = self.dfdx(self.ekf.x)
         self.ekf.predict(fx=self.m.f)
         self.ekf.update(z=last_y, HJacobian=self.dh, Hx=self.o.h)
@@ -388,43 +388,109 @@ class MS_MHE_PE:
         self.reg1 = np.ones(3)
         self.reg2 = np.ones(7)
 
-        self.reg1 = np.multiply(self.reg1, self.measurement_pen)
-        self.reg2 = np.multiply(self.reg2, self.model_pen)
-        ################################################ we need to change self.P_end at some point for the next iteration
+        # self.reg1 = np.multiply(self.reg1, self.measurement_pen)
+        # self.reg2 = np.multiply(self.reg2, self.model_pen)
 
     def estimation(self):
-
         grad = self.gradient(self.vars)
         hess = self.hessian(self.vars)
 
         if self.method == 'BFGS':
             self.vars = BFGS(self.vars, hess, self.cost, self.gradient, self.N)
         elif self.method == 'Newton LS':
+            print(self.cost(self.vars))
             for i in range(2):
-                print(self.cost(self.vars))
                 self.vars = newton_iter_selection(self.vars, grad, hess, self.N, self.cost, 'on')
-                print(self.cost(self.vars))
                 grad = self.gradient(self.vars)
                 hess = self.hessian(self.vars)
-                # self.vars = newton_iter(self.vars, grad, hess)
+            print(self.cost(self.vars))
         elif self.method == 'Newton':
             for i in range(10):
                 self.vars = newton_iter_selection(self.vars, grad, hess, self.N, self.cost, 'off')
                 grad = self.gradient(self.vars)
                 hess = self.hessian(self.vars)
                 # self.vars = newton_iter(self.vars, grad, hess)
+        elif self.method == 'Gradient':
+            self.vars = gradient_search(self.vars, self.cost, self.gradient)
         elif self.method == 'Built-in optimizer':
-            # select vars
-            # vars_select = np.zeros((self.N+1)*7)
-            # for i in range(0, 2 * self.N + 1, 2):
-            #     vars_select[(i // 2) * 7:(i // 2 + 1) * 7] = self.vars[i * 7:(i + 1) * 7]
-            vars_select = self.vars
-            result = minimize(fun=self.cost, x0=vars_select, method='trust-ncg', jac=self.gradient, hess=self.hessian, options = {'maxiter': 10})
-            self.vars = result
-            # for i in range(0, 2 * self.N + 1, 2):
-            #     self.vars[i * 7:(i + 1) * 7] = result.x[(i // 2) * 7:(i // 2 + 1) * 7]
+            print(self.cost(self.vars))
+            # result = minimize(fun=self.cost, x0=vars_select, method='trust-ncg', jac=self.gradient, hess=self.hessian, options = {'maxiter': 10})
+            result = minimize(self.cost, self.vars, method='Nelder-Mead', options = {'maxiter': 30})
+            self.vars = result.x
+            print(self.cost(self.vars))
         else:
             print('Optimization method ' + self.method + ' non recognize')
+
+    def last_covariance(self):
+        self.ekf.x = self.vars[0:7]
+        self.ekf.P = self.P0
+
+        for i in range(self.N):
+            self.ekf.F = self.dfdx(self.ekf.x)
+            self.ekf.predict(fx=self.m.f)
+            self.ekf.update(z=self.y[i+1], HJacobian=self.dh, Hx=self.o.h)
+            if i == 0:
+                P0 = np.copy(self.ekf.P)
+        return self.ekf.P, P0
+
+    def tuning_MHE(self, real_x, real_beta, step):
+        self.real_x = np.ones((1+self.N)*7)
+        for i in range(0, self.N+1):
+            for j in range(3):
+                self.real_x[i*7+j] = real_x[step-self.N-1 + i][0][j]
+            for j in range(3):
+                self.real_x[i*7+j+3] = real_x[step-self.N-1 + i][1][j]
+            self.real_x[i*7 + 6] = real_beta[i]
+        coeffs = []
+        for i in range(3): coeffs.append(self.measurement_pen[i])
+        for i in range(7): coeffs.append(self.model_pen[i])
+
+        tuning = minimize(self.tuning_cost, coeffs, method='Nelder-Mead', options = {'maxiter': 200} )
+        tuning.x = np.abs(tuning.x)
+        for i in range(3):
+            self.reg1[i] = tuning.x[i]
+            self.measurement_pen[i] = tuning.x[i]
+        for i in range(7):
+            self.reg2[i] = tuning.x[i+3]
+            self.model_pen[i] = tuning.x[i+3]
+        return tuning.x
+
+    def tuning_cost(self, coeffs):
+        reg1 = np.ones(3)
+        reg2 = np.ones(7)
+        for i in range(3):
+            reg1[i] = coeffs[i]
+        for i in range(7):
+            reg2[i] = coeffs[i+3]
+
+        h_i = []
+        g_i = np.zeros((self.N + 1) * 7)
+
+        self.ekf.P = np.copy(self.P0)
+        self.ekf.x = self.real_x[0:7]
+
+        for i in range(0, self.N):
+            # self.ekf.x = var[i*7:(i+1)*7]
+            self.ekf.F = self.dfdx(self.ekf.x)
+            self.ekf.predict(fx=self.m.f)
+            self.ekf.update(z=self.y[i + 1], HJacobian=self.dh, Hx=self.o.h)
+            g_i[i * 7:(i + 1) * 7] = self.ekf.x
+            h_i.append(self.o.h(self.real_x[i * 7:i * 7 + 3], 'off'))
+        h_i.append(self.o.h(self.real_x[self.N * 7:self.N * 7 + 3], 'off'))
+
+        J = 0
+        for i in range(self.N + 1):
+            J = J + 0.5 * LA.norm(np.multiply(reg1, self.y[i] - h_i[i]))**2
+
+        for i in range(self.N):
+            J = J + 0.5 * self.pen * LA.norm(
+                np.multiply(reg2, self.real_x[(i + 1) * 7:(i + 2) * 7] - g_i[i * 7:(i + 1) * 7])) ** 2
+        for i in range(10):
+            J = J + np.abs(10/coeffs[i])
+        return J
+
+
+
 
 
 

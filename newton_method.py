@@ -77,7 +77,7 @@ def BFGS(x0, B0, cost_fun, gradient, N):
     grad = gradient(x_k)
 
     if LA.det(B) == 0:
-        B = B + np.identity(len(B)) * 10e-6
+        B = B + np.identity(len(B)) * 10e-7
         print('-----------------------------')
 
     for i in range(10):
@@ -110,7 +110,7 @@ def line_Search(x, cost_fun, p, gradient):
     # set alpha equal to maximum step
     alpha = 1
     sigma = 0.5
-    c = 0.5
+    c = 0.25
     x_kplus1 = x - alpha*p
     cost0 = cost_fun(x)
     while cost_fun(x_kplus1)-cost0 >= c*alpha*np.matmul(np.transpose(gradient), p):
@@ -122,6 +122,20 @@ def line_Search(x, cost_fun, p, gradient):
             break
     return alpha
 
+def gradient_search(x0, cost_fun, gradient_fun):
+    x = np.copy(x0)
+    cost_before = cost_fun(x0)
+    print('cost', cost_fun(x0))
+    for i in range(20):
+        p = gradient_fun(x)
+        alpha = line_Search(x, cost_fun, p, p)
+        x = x - alpha*p
+    cost_after = cost_fun(x)
+    print('cost', cost_after)
+    if cost_after>=cost_before:
+        return x0
+    if cost_after<cost_before:
+        return x
 
 
 def is_pos_def(x):

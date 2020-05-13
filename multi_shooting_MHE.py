@@ -2,17 +2,20 @@ from numpy import linalg as LA
 import numpy as np
 from newton_method import newton_iter_selection
 from newton_method import BFGS
+from newton_method import gradient_search
 from newton_method import newton_iter
 import sys
 from scipy.optimize import minimize
 
 class multishooting:
-    def __init__(self, estimation_model, true_system, observer, horizon, measurement_lapse, pen1, pen2, opt_method='Newton'):
+    def __init__(self, estimation_model, true_system, observer, horizon, measurement_lapse, pen1, pen2, Q, R, opt_method='Newton LS'):
         self.N = horizon
         self.m = estimation_model
         self.d = true_system
         self.o = observer
         self.method = opt_method
+        self.Q = Q
+        self.R = R
 
         self.inter_steps = int(measurement_lapse / self.m.delta_t)
 
@@ -21,13 +24,25 @@ class multishooting:
         self.y = []  # list of true measurements across the horizon
         self.pen = 1  # penalty factor
         self.pen1 = 0  # factor to remove Lagrangians (note this is highly inefficient since there will be un-used variables)
-        self.pen2 = 0  # 10e-5
 
-        self.reg1 = np.zeros(3)  # distance, azimuth, elevation
-        self.reg2 = np.zeros(7)  # position, velocity and ballistic coeff
+        # self.reg1 = self.R # LA.inv(self.R)  # np.zeros(3)  # distance, azimuth, elevation
+        # self.reg2 = self.Q # LA.inv(self.Q)  # np.zeros(7)  # position, velocity and ballistic coeff
+
+        self.reg1 = np.identity(3)
+        self.reg2 = np.identity(7)*1e-5
+        self.reg2[6,6] = 0.1*self.reg2[6,6]
 
         self.measurement_pen = pen1
         self.model_pen = pen2
+
+        for i in range(3):
+            self.reg1[i,i] = self.measurement_pen[i]
+        for i in range(7):
+            self.reg2[i,i] = self.model_pen[i]
+
+        # VARIABLES FOR ARRIVAL COST
+        self.x_prior = np.zeros(7)
+        self.mu = 1e0
 
 
     def estimator_initilisation(self, step, y_measured):
@@ -39,46 +54,47 @@ class multishooting:
             for j in range(3,6):
                 self.vars[i * 7 + j] = np.copy(self.m.Sk[len(self.m.Sk) - (1 + self.N) * self.inter_steps + i//2][1][j-3])
             self.vars[i*7 + 6] = self.m.beta
+        self.x_prior = self.vars[0:7]
 
-            # it is assumed that the horizon is sufficiently small such that all measurements are of the same order at
-            # end and beginning of the horizon
-            # measurements reg
+        # self.reg1 = np.ones(3)
+        # self.reg2 = np.ones(7)
+        #
+        # self.reg1 = np.multiply(self.reg1, self.measurement_pen)
+        # self.reg2 = np.multiply(self.reg2, self.model_pen)
+        # it is assumed that the horizon is sufficiently small such that all measurements are of the same order at
+        # end and beginning of the horizon
+        # measurements reg
 
-            for i in range(3):
-                if np.abs(self.y[0, i]) < 1:
-                    mult = 1
-                    while mult * np.abs(self.y[0, i]) <= 1:
-                        mult = mult * 10
-                    self.reg1[i] = 1 * mult
-                else:
-                    mult = 1
-                    while np.abs(self.y[0, i]) // mult >= 10:
-                        mult = mult * 10
-                    self.reg1[i] = 1 / mult
-
-            # position and velocity reg
-            for i in range(2):
+        for i in range(3):
+            if np.abs(self.y[0, i]) < 1:
                 mult = 1
-                if np.abs(self.vars[i * 3]) < 1:
-                    while mult * np.abs(self.vars[i * 3]) <= 1:
-                        mult = mult * 10
-                    self.reg2[i * 3:i * 3 + 3] = 1 * mult
-                else:
-                    while np.abs(self.vars[i * 3]) // mult >= 10:
-                        mult = mult * 10
-                    self.reg2[i * 3:i * 3 + 3] = 1 / mult
+                while mult * np.abs(self.y[0, i]) <= 1:
+                    mult = mult * 10
+                self.reg1[i, i] = self.measurement_pen[i] * mult
+            else:
+                mult = 1
+                while np.abs(self.y[0, i]) // mult >= 10:
+                    mult = mult * 10
+                self.reg1[i, i] = self.measurement_pen[i] / mult
 
-            # ballistic coeff reg
+        # position and velocity reg
+        for i in range(2):
             mult = 1
-            while np.abs(self.vars[6]) // mult >= 10:
-                mult = mult * 10
-            self.reg2[6] = 1 / mult
+            if np.abs(self.vars[i * 3]) < 1:
+                while mult * np.abs(self.vars[i * 3]) <= 1:
+                    mult = mult * 10
+                for j in range(3): self.reg2[i * 3 + j, i * 3 + j] = self.model_pen[i * 3 + j] * mult
+            else:
+                while np.abs(self.vars[i * 3]) // mult >= 10:
+                    mult = mult * 10
+                for j in range(3): self.reg2[i * 3 + j, i * 3 + j] = self.model_pen[i * 3 + j] / mult
 
-            self.reg1 = np.ones(3)
-            self.reg2 = np.ones(7)
+        # ballistic coeff reg
+        mult = 1
+        while np.abs(self.vars[6]) // mult >= 10:
+            mult = mult * 10
+        self.reg2[6, 6] = self.model_pen[6] / mult
 
-            self.reg1 = np.multiply(self.reg1, self.measurement_pen)
-            self.reg2 = np.multiply(self.reg2, self.model_pen)
 
 
     def cost(self, x):
@@ -95,16 +111,18 @@ class multishooting:
             h_i.append(self.o.h(var[i*7:i*7+3], 'off'))
             f_i[(i//2)*7:(i//2)*7+3], f_i[(i//2)*7+3:(i//2)*7+6], a, f_i[(i//2)*7+6] = self.m.f(var[i*7:i*7+3], var[i*7+3:i*7+6], var[i*7+6], 'off')
 
-        # J = 0.5*LA.norm(self.y-h_i)**2
-        J = 0
+        R_mu = np.identity(7)
+        for i in range(7): R_mu[i, i] = self.reg2[i, i]/self.model_pen[i]
+
+        # Arrival cost
+        J = 0.5*self.mu*LA.norm(np.matmul(R_mu, self.vars[0:7] - self.x_prior))**2
 
         for i in range(self.N + 1):
-            J = J + 0.5 * LA.norm(np.multiply(self.reg1, self.y[i] - h_i[i]))**2
+            J = J + 0.5 * LA.norm(np.matmul(self.reg1, self.y[i] - h_i[i]))**2
 
         for i in range(0, 2*self.N, 2):
-            J = J + self.pen1*np.matmul(var[(i+1)*7:(i+2)*7], np.multiply(self.reg2, var[(i+2)*7:(i+3)*7] - f_i[(i//2)*7:(i//2+1)*7])) \
-                + 0.5*self.pen*LA.norm(np.multiply(self.reg2, var[(i+2)*7:(i+3)*7] - f_i[(i//2)*7:(i//2+1)*7]))**2 \
-                + 0.5 * self.pen2*(var[i*7+6] - self.m.beta)**2
+            J = J + self.pen1*np.matmul(var[(i+1)*7:(i+2)*7], np.matmul(self.reg2, var[(i+2)*7:(i+3)*7] - f_i[(i//2)*7:(i//2+1)*7])) \
+                + 0.5*self.pen*LA.norm(np.matmul(self.reg2, var[(i+2)*7:(i+3)*7] - f_i[(i//2)*7:(i//2+1)*7]))**2
         return J
 
 
@@ -253,31 +271,35 @@ class multishooting:
             r, v, a, beta = self.m.f(var[i*7:i*7+3], var[i*7+3:i*7+6], var[i*7+6], 'off')
             f_i.append([r[0], r[1], r[2], v[0], v[1], v[2], beta])
 
-        R1 = np.power(self.reg1, 2)
-        R2 = np.power(self.reg2, 2)
+        R1 = np.zeros((3,3))
+        R2 = np.zeros((7,7))
+        for i in range(3):
+            R1[i,:] = self.reg1[i,:]*self.reg1[i,i]
+        for i in range(7):
+            R2[i,:] = self.reg2[i,:]*self.reg2[i,i]
+        R_mu = np.identity(7)
+        for i in range(7): R_mu[i, i] = (self.reg2[i, i] / self.model_pen[i])**2
 
         # grad[0:7] = np.matmul(np.transpose(dh_i[0]), np.multiply(R1, self.o.h(var[0:3], 'off') - self.y[0])) \
-        grad[0:7] = np.matmul(np.transpose(dh_i[0]), np.multiply(R1, self.o.h(var[0:3], 'off') - self.y[0])) \
-                    - np.matmul(np.transpose(df_i[0]), np.multiply(R2, self.pen1*var[7:14]) + self.pen*np.multiply(R2, var[2*7:3*7] - f_i[0]))  # dJ/dx
-        grad[6] = grad[6] + self.pen2*(var[6] - self.m.beta)
+        grad[0:7] = np.matmul(np.transpose(dh_i[0]), np.matmul(R1, self.o.h(var[0:3], 'off') - self.y[0])) \
+                    - np.matmul(np.transpose(df_i[0]), np.matmul(R2, self.pen1*var[7:14]) + self.pen*np.matmul(R2, var[2*7:3*7] - f_i[0])) + \
+                    np.matmul(R_mu, var[0:7] - self.x_prior)# dJ/dx
 
         for i in range(2,2*self.N,2):
-            grad[(i-1)*7:i*7] = self.pen1*(np.multiply(R2, var[i*7:(i+1)*7] - f_i[i//2-1]))  # dJ/d(lambda)
-            grad[i*7:(i+1)*7] = np.matmul(np.transpose(dh_i[i//2]), np.multiply(R1, self.o.h(var[i*7:i*7+3], 'off') - self.y[i//2])) \
+            grad[(i-1)*7:i*7] = self.pen1*(np.matmul(R2, var[i*7:(i+1)*7] - f_i[i//2-1]))  # dJ/d(lambda)
+            grad[i*7:(i+1)*7] = np.matmul(np.transpose(dh_i[i//2]), np.matmul(R1, self.o.h(var[i*7:i*7+3], 'off') - self.y[i//2])) \
                                 - np.matmul(np.transpose(df_i[i//2]), self.pen1*var[(i+1)*7:(i+2)*7]) \
-                                - np.matmul(np.transpose(df_i[i//2]), self.pen*np.multiply(R2, (var[(i+2)*7:(i+3)*7] - f_i[i//2])))\
-                                + self.pen*np.multiply(R2,(var[i*7:(i+1)*7] - f_i[i//2-1])) + self.pen1*var[(i-1)*7:i*7]  # dJ/d(lambda)
-            grad[i*7+6] = grad[i*7+6] + self.pen2*(var[i*7+6]- self.m.beta)
+                                - np.matmul(np.transpose(df_i[i//2]), self.pen*np.matmul(R2, (var[(i+2)*7:(i+3)*7] - f_i[i//2]))) \
+                                + self.pen*np.matmul(R2,(var[i*7:(i+1)*7] - f_i[i//2-1])) + self.pen1*var[(i-1)*7:i*7]  # dJ/d(lambda)
 
         grad[(2*self.N -1)*7:(2 * self.N )*7] = self.pen1*(var[2*self.N*7:2*self.N*7+7] - f_i[self.N-1])
-        grad[(2*self.N)*7:(2*self.N+1)*7] = np.matmul(np.transpose(dh_i[self.N]),  np.multiply(R1, self.o.h(var[2*self.N*7:2*self.N*7+3], 'off') - self.y[self.N])) \
-                                            + self.pen*np.multiply(R2, var[2*self.N*7:(2*self.N+1)*7] - f_i[self.N-1]) + self.pen1*var[(2*self.N-1)*7:(2*self.N)*7]
-        grad[2*self.N*7+6] = grad[2*self.N*7+6] + self.pen2*(var[2*self.N*7+6] - self.m.beta)
+        grad[(2*self.N)*7:(2*self.N+1)*7] = np.matmul(np.transpose(dh_i[self.N]),  np.matmul(R1, self.o.h(var[2*self.N*7:2*self.N*7+3], 'off') - self.y[self.N])) \
+                                            + self.pen*np.matmul(R2, var[2*self.N*7:(2*self.N+1)*7] - f_i[self.N-1]) + self.pen1*var[(2*self.N-1)*7:(2*self.N)*7]
 
         # checking method
         # for l in range(len(var)):
         #     if (l//7)%2 == 0:
-        #         eps = 1
+        #         eps = 0.1
         #         plus_eps = np.copy(var)
         #         plus_eps[l] = plus_eps[l]+eps
         #         minus_eps = np.copy(var)
@@ -289,11 +311,9 @@ class multishooting:
         #         # print(A)
         #         # print(B)
         #         derivative = (A-B)/(2*eps)
-        #         # print('numerical', derivative, 'analytical', grad[l])
         #         print(l, ': diff (%): ', 100*np.abs(np.divide(grad[l]-derivative, grad[l], out=np.zeros_like(grad[l]), where=grad[l]!=0)))
         #         # print(l, ': diff (%): ', 100*np.abs(np.divide(grad[l]-derivative, derivative, out=np.zeros_like(derivative), where=derivative!=0)))
         #         print('  analytical: ', grad[l], '; numerical: ', derivative)
-        #
         # sys.exit()
 
         if selection == 'on':
@@ -319,13 +339,18 @@ class multishooting:
 
         # The function assumes that the second derivatives of f and h are null
         H = np.zeros(((2*self.N+1)*7, (2*self.N+1)*7))
-        R1 = np.multiply(np.identity(3), np.power(self.reg1, 2))
-        R2 = np.multiply(np.identity(7), np.power(self.reg2, 2))
+        R1 = np.zeros((3, 3))
+        R2 = np.zeros((7, 7))
+        for i in range(3):
+            R1[i, :] = self.reg1[i, :] * self.reg1[i, i]
+        for i in range(7):
+            R2[i, :] = self.reg2[i, :] * self.reg2[i, i]
+        R_mu = np.identity(7)
+        for i in range(7): R_mu[i, i] = (self.reg2[i, i] / self.model_pen[i]) ** 2
 
         dhdx = self.dh(var[0:7])
         dfdx = self.dfdx(var[0:7])
-        H[0:7, 0:7] = np.matmul(np.transpose(dhdx), np.matmul(R1, dhdx)) + self.pen*np.matmul(np.transpose(dfdx), np.matmul(R2, dfdx))  # dJ/d(x^2)
-        H[6, 6] = H[6, 6] + self.pen2 # add beta penalty
+        H[0:7, 0:7] = np.matmul(np.transpose(dhdx), np.matmul(R1, dhdx)) + self.pen*np.matmul(np.transpose(dfdx), np.matmul(R2, dfdx)) + self.mu*R_mu # dJ/d(x^2)
         H[0:7, 2*7:3*7] = -self.pen*np.matmul(np.transpose(dfdx), R2)  # dJ/d(x_i)d(x_i+1)
         H[0:7, 7:14] = -np.transpose(dfdx) * self.pen1  # dJ/dxd(lambda_i+1)
         H[7:14, 0:7] = -dfdx * self.pen1  # dJ/d(lambda)dx
@@ -337,7 +362,6 @@ class multishooting:
             dfdx = self.dfdx(var[i*7:(i+1)*7])
             H[i*7:(i+1)*7, i*7:(i+1)*7] = np.matmul(np.transpose(dhdx), np.matmul(R1, dhdx)) + self.pen * np.matmul(np.transpose(dfdx), np.matmul(R2, dfdx)) \
                                           + self.pen*R2  # dJ/d(x_i^2)
-            H[i*7+6, i*7+6] = H[i*7+6, i*7+6] + self.pen2  # add penalty derivative
             H[i*7:(i+1)*7, (i+2)*7:(i+3)*7] = -self.pen*np.matmul(np.transpose(dfdx), R2)  # dJ/d(x_i)d(x_i+1)
             H[i*7:(i+1)*7, (i-2)*7:(i-1)*7] = -self.pen*np.matmul(R2, self.dfdx(var[(i-2)*7:(i-1)*7])) # dJ/d(x_i)d(x_i-1)
             H[i*7:(i+1)*7, (i+1)*7:(i+2)*7] = -self.pen1*np.transpose(dfdx)  # dJ/dxd(lambda_i+1)
@@ -348,7 +372,6 @@ class multishooting:
 
         dhdx = self.dh(var[(2*self.N)*7:(2*self.N+1)*7])
         H[(2*self.N)*7:(2*self.N+1)*7, (2*self.N)*7:(2*self.N+1)*7] = np.matmul(np.transpose(dhdx),np.matmul(R1, dhdx)) + self.pen * R2  # dJ/d(x^2)
-        H[(2*self.N)*7+6, (2*self.N)*7+6] = H[(2*self.N)*7+6, (2*self.N)*7+6] + self.pen2  # add beta penalty
         H[(2*self.N)*7:(2*self.N+1)*7, (self.N*2-2)*7:(self.N*2-1)*7] = -self.pen*np.matmul(R2, dfdx)  # dJ/d(x_i)d(x_i-1)
         H[(2*self.N)*7:(2*self.N+1)*7, (2*self.N-1)*7:(2*self.N)*7] = np.identity(7) * self.pen1  # dJ/dxd(lambda_i))
 
@@ -369,6 +392,7 @@ class multishooting:
         #         print(l, ': max diff (%): ', 100*np.amax(np.abs(np.divide(H[l,: ] - derivative, H[l,: ], out=np.zeros_like(H[l,: ]), where=H[l,: ]!=0))))
         #         # print('numerical', derivative)
         #         # print('analytical', H[l, :])
+        # sys.exit()
 
         if selection == 'on':
             reduced_H = np.ones(((self.N+1)*7,(self.N+1)*7))
@@ -391,6 +415,8 @@ class multishooting:
         self.y[0:self.N] = self.y[1:self.N+1]
         self.y[self.N] = last_y
 
+        self.x_prior = self.vars[0:7]
+
         # it is assumed that the horizon is sufficiently small such that all measurements are of the same order at
         # end and beginning of the horizon
         # measurements reg
@@ -400,12 +426,12 @@ class multishooting:
                 mult = 1
                 while mult * np.abs(self.y[0, i]) <= 1:
                     mult = mult * 10
-                self.reg1[i] = 1 * mult
+                self.reg1[i,i] = self.measurement_pen[i] * mult
             else:
                 mult = 1
                 while np.abs(self.y[0, i]) // mult >= 10:
                     mult = mult * 10
-                self.reg1[i] = 1 / mult
+                self.reg1[i,i] = self.measurement_pen[i] / mult
 
         # position and velocity reg
         for i in range(2):
@@ -413,27 +439,27 @@ class multishooting:
             if np.abs(self.vars[i * 3]) < 1:
                 while mult * np.abs(self.vars[i * 3]) <= 1:
                     mult = mult * 10
-                self.reg2[i * 3:i * 3 + 3] = 1 * mult
+                for j in range(3): self.reg2[i*3 + j, i*3 + j] =  self.model_pen[i*3+j] * mult
             else:
                 while np.abs(self.vars[i * 3]) // mult >= 10:
                     mult = mult * 10
-                self.reg2[i * 3:i * 3 + 3] = 1 / mult
+                for j in range(3): self.reg2[i*3 + j, i*3 + j] = self.model_pen[i*3+j] / mult
 
         # ballistic coeff reg
         mult = 1
         while np.abs(self.vars[6]) // mult >= 10:
             mult = mult * 10
-        self.reg2[6] = 1 / mult
+        self.reg2[6, 6] = self.model_pen[6] / mult
 
-        self.reg1 = np.ones(3)
-        self.reg2 = np.ones(7)
+        # self.reg1 = np.ones(3)
+        # self.reg2 = np.ones(7)
+        #
+        # self.reg1 = np.multiply(self.reg1, self.measurement_pen)
+        # self.reg2 = np.multiply(self.reg2, self.model_pen)
 
-        self.reg1 = np.multiply(self.reg1, self.measurement_pen)
-        self.reg2 = np.multiply(self.reg2, self.model_pen)
-
-    def estimation(self, mea_pen, mod_pen):
-        self.reg1 = mea_pen
-        self.reg2 = mod_pen
+    def estimation(self, mea_pen=[], mod_pen=[]):
+        # self.reg1 = mea_pen
+        # self.reg2 = mod_pen
 
         grad = self.gradient(self.vars)
         hess = self.hessian(self.vars)
@@ -441,17 +467,21 @@ class multishooting:
         if self.method == 'BFGS':
             self.vars = BFGS(self.vars, hess, self.cost, self.gradient, self.N)
         elif self.method == 'Newton LS':
-            for i in range(150):
+            print(self.cost(self.vars))
+            for i in range(20):
                 self.vars = newton_iter_selection(self.vars, grad, hess, self.N, self.cost, 'on')
                 grad = self.gradient(self.vars)
                 hess = self.hessian(self.vars)
                 # self.vars = newton_iter(self.vars, grad, hess)
+            print(self.cost(self.vars))
         elif self.method == 'Newton':
             for i in range(150):
                 self.vars = newton_iter_selection(self.vars, grad, hess, self.N, self.cost, 'off')
                 grad = self.gradient(self.vars)
                 hess = self.hessian(self.vars)
                 # self.vars = newton_iter(self.vars, grad, hess)
+        elif self.method == 'Gradient':
+            self.vars = gradient_search(self.vars, self.cost, self.gradient)
         elif self.method == 'Built-in optimizer':
             # select vars
             vars_select = np.zeros((self.N+1)*7)
@@ -509,18 +539,46 @@ class multishooting:
 
         for i in range(0, 2*self.N, 2):
             J = J + self.pen1*np.matmul(self.real_x[(i+1)*7:(i+2)*7], np.multiply(reg2, self.real_x[(i+2)*7:(i+3)*7] - f_i[(i//2)*7:(i//2+1)*7])) \
-                + 0.5*self.pen*LA.norm(np.multiply(reg2, self.real_x[(i+2)*7:(i+3)*7] - f_i[(i//2)*7:(i//2+1)*7]))**2 \
-                + 0.5 * self.pen2*(self.real_x[i*7+6] - self.m.beta)**2
+                + 0.5*self.pen*LA.norm(np.multiply(reg2, self.real_x[(i+2)*7:(i+3)*7] - f_i[(i//2)*7:(i//2+1)*7]))**2
 
         for i in range(10):
             J = J + np.abs(10/coeffs[i])
         return J
 
 
-
-
-
-
+# # it is assumed that the horizon is sufficiently small such that all measurements are of the same order at
+# # end and beginning of the horizon
+# # measurements reg
+#
+# for i in range(3):
+#     if np.abs(self.y[0, i]) < 1:
+#         mult = 1
+#         while mult * np.abs(self.y[0, i]) <= 1:
+#             mult = mult * 10
+#         self.reg1[i] = 1 * mult
+#     else:
+#         mult = 1
+#         while np.abs(self.y[0, i]) // mult >= 10:
+#             mult = mult * 10
+#         self.reg1[i] = 1 / mult
+#
+# # position and velocity reg
+# for i in range(2):
+#     mult = 1
+#     if np.abs(self.vars[i * 3]) < 1:
+#         while mult * np.abs(self.vars[i * 3]) <= 1:
+#             mult = mult * 10
+#         self.reg2[i * 3:i * 3 + 3] = 1 * mult
+#     else:
+#         while np.abs(self.vars[i * 3]) // mult >= 10:
+#             mult = mult * 10
+#         self.reg2[i * 3:i * 3 + 3] = 1 / mult
+#
+# # ballistic coeff reg
+# mult = 1
+# while np.abs(self.vars[6]) // mult >= 10:
+#     mult = mult * 10
+# self.reg2[6] = 1 / mult
 
 
 
