@@ -27,7 +27,7 @@ coeff10 = [0.51709758,0.4,0.34652715,0.42812393,0.42725902,0.42898717,0.42898175
 
 
 t_lim = 120
-N = [20, 30, 40]  # size of the horizon
+N = [20, 20]  # size of the horizon
 measurement_lapse = 0.5  # time lapse between every measurement
 
 t = 0.00
@@ -65,8 +65,9 @@ opt = []
 method = ['Newton LS','Newton LS','Newton LS']
 measurement_pen =  [1e6, 5e1, 1e1]  # [1e7, 1, 1] #  [1e6, 1e-1, 1e-1] # [0.06, 80, 80] [1, 1e2, 1e3]  #
 model_pen =  [1e4, 1e4, 1e4, 1e1, 1e1, 1e1, 1e1]  # [1e6, 1e6, 1e6, 1e1, 1e1, 1e1, 1e-1] #  [3, 3, 3, 1, 1, 1, 0.43] #[1, 1, 1, 1e1, 1e1, 1e1, 1e-1]  #
+arrival = [1, 0]
 for i in range(len(N)):
-    opt.append(multishooting(m, d, o, N[i], measurement_lapse, measurement_pen, model_pen, Q, R, method[i]))
+    opt.append(multishooting(m, d, o, N[i], measurement_lapse, measurement_pen, model_pen, Q, R, arrival[i], method[i]))
     # opt.append(MS_MHE_PE(m, d, o, N[i], measurement_lapse, measurement_pen, model_pen,[P0, Q, R], opt_method=method[i]))
 memory = Memory(o, N, len(N))
 

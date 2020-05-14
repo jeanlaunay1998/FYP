@@ -40,10 +40,10 @@ class Memory:
             ekf_y.append(self.o.h(EKF_states[i]))
 
         labelstring = []
-        method = ['Newton LS', 'Newton']
+        method = [' arrival cost', 'no arrival cost']
         for i in range(self.size):
-            labelstring.append('MHE N =' + str(self.N[i]))
-            # labelstring.append('MHE with ' + method[i])
+            # labelstring.append('MHE N =' + str(self.N[i]))
+            labelstring.append('MHE with ' + method[i])
 
             # ballistic coefficient plot
         plt.figure(1)
@@ -68,7 +68,7 @@ class Memory:
         ax[1, 0].set(xlabel='Time (s)', ylabel='el (radians)')
         ax[2, 0].plot(self.t, np.array(y_real)[self.N[0]:len(y_real), 2], 'k', label='True system')
         ax[2, 0].plot(self.t, np.array(kf_y)[self.N[0]:len(KF_states), 2], 'b', label='Unscented Kalman filter')
-        ax[2, 0].plot(self.t, np.array(ekf_y)[self.N[0]:len(EKF_states), 2], 'b', label='Extended Kalman filter')
+        ax[2, 0].plot(self.t, np.array(ekf_y)[self.N[0]:len(EKF_states), 2], 'r', label='Extended Kalman filter')
         ax[2, 0].set(xlabel='Time (s)', ylabel='az (radians)')
 
         # plot Estimates
@@ -79,7 +79,7 @@ class Memory:
                 y1 = 100*np.abs(np.divide(np.array(ekf_y)[self.N[0]:len(EKF_states), j] - np.array(y_real)[self.N[0]:len(y_real), j], np.array(y_real)[self.N[0]:len(y_real), j], \
                                          out=np.array(y_real)[self.N[0]:len(y_real), j], where=np.array(y_real)[self.N[0]:len(y_real), j]!=0))
                 ax[j, 1].plot(self.t, y, '-b')
-                ax[j, 1].plot(self.t, y1, '-b')
+                ax[j, 1].plot(self.t, y1, '-r')
 
         lim = [0.5, 5, 30]
         for i in range(self.size):
@@ -119,10 +119,10 @@ class Memory:
 
         for j in range(3):
             y = np.abs(np.divide(np.array(KF_states)[self.N[0]:len(KF_states), j] - real[self.N[0]:len(Sk), 0, j],  real[self.N[0]:len(Sk), 0, j], \
-                                     out=np.zeros_like(real[self.N[i]:len(Sk), 0, j]), where=real[self.N[i]:len(Sk), 0, j]!=0))
+                                     out=np.zeros_like(real[self.N[0]:len(Sk), 0, j]), where=real[self.N[0]:len(Sk), 0, j]!=0))
             ax[j, 1].plot(self.t, 100 * y, '-b')
             y = np.abs(np.divide(np.array(EKF_states)[self.N[0]:len(EKF_states), j] - real[self.N[0]:len(Sk), 0, j],  real[self.N[0]:len(Sk), 0, j], \
-                                     out=np.zeros_like(real[self.N[i]:len(Sk), 0, j]), where=real[self.N[i]:len(Sk), 0, j]!=0))
+                                     out=np.zeros_like(real[self.N[0]:len(Sk), 0, j]), where=real[self.N[0]:len(Sk), 0, j]!=0))
             ax[j, 1].plot(self.t, 100 * y, '-r')
 
         for i in range(self.size):
@@ -159,8 +159,8 @@ class Memory:
 
 
         for j in range(3):
-            y = np.abs(np.divide(np.array(KF_states)[self.N[0]:len(KF_states), j+3] - real[self.N[i]:len(Sk), 1, j],  real[self.N[i]:len(Sk), 1, j], \
-                                     out=np.zeros_like(real[self.N[i]:len(Sk), 1, j]), where=real[self.N[i]:len(Sk), 1, j]!=0))
+            y = np.abs(np.divide(np.array(KF_states)[self.N[0]:len(KF_states), j+3] - real[self.N[0]:len(Sk), 1, j],  real[self.N[0]:len(Sk), 1, j], \
+                                     out=np.zeros_like(real[self.N[0]:len(Sk), 1, j]), where=real[self.N[0]:len(Sk), 1, j]!=0))
             ax[j, 1].plot(self.t, 100 * y, '-b')
 
         for i in range(self.size):
