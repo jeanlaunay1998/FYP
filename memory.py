@@ -20,8 +20,8 @@ class Memory:
     def save_data(self, time, vars, y_model, cost, number):
         ys = []
         xs = []
-        # for i in range(0,self.N[number]+1):
-        for i in range(0,2*self.N[number]+1,2):
+        for i in range(0,self.N[number]+1):
+        # for i in range(0,2*self.N[number]+1,2):
             ys.append(self.o.h(vars[i*7:i*7+3], 'off'))
             xs.append(vars[i*7:(i+1)*7])
 
@@ -31,6 +31,13 @@ class Memory:
         if number == 0:
             self.y_model.append(y_model)
             self.t.append(time)
+
+    def transform2seu(self, real_x, Sk, KF_states, EKF_states):
+        print(len(Sk))
+        print(len(real_x))
+        for i in len(real_x):
+            real_x[i, 0, :] = self.o.position_transform(real_x[i, 0, :])
+
 
     def make_plots(self, real_x, real_beta, y_real, Sk, KF_states, EKF_states):
         kf_y = []
@@ -182,6 +189,8 @@ class Memory:
 
 
         plt.show()
+
+    def analysis(self, real_x, real_beta, y_real, Sk, KF_states, EKF_states):
 
 # Plot approximation model variables
         # ax[0, 0].plot(self.t, np.array(self.y_model)[:, 0], 'r')

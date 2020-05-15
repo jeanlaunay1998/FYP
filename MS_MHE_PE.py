@@ -38,6 +38,10 @@ class MS_MHE_PE:
         self.measurement_pen = pen1
         self.model_pen = pen2
 
+        # VARIABLES FOR ARRIVAL COST
+        self.x_prior = np.zeros(7)
+        self.mu = 1e1
+
 
     def estimator_initilisation(self, step, y_measured):
         # this function initiates the estimator
@@ -62,6 +66,7 @@ class MS_MHE_PE:
             self.P_horizon.append(self.ekf.P)
             self.K_horizon.append(self.ekf.K)
         self.P_end = self.ekf.P
+        self.x_prior = self.vars[0:7]
 
         # it is assumed that the horizon is sufficiently small such that all measurements are of the same order at
         # end and beginning of the horizon
@@ -124,7 +129,12 @@ class MS_MHE_PE:
             h_i.append(self.o.h(var[i*7:i*7+3], 'off'))
         h_i.append(self.o.h(var[self.N*7:self.N*7+3], 'off'))
 
-        J = 0
+        R_mu = np.identity(7)
+        for i in range(7): R_mu[i, i] = self.reg2[i, i] / self.model_pen[i]
+
+        # Arrival cost
+        J = 0.5 * self.mu * LA.norm(np.matmul(R_mu, self.vars[0:7] - self.x_prior)) ** 2
+
         for i in range(self.N + 1):
             J = J + 0.5 * LA.norm(np.multiply(self.reg1, self.y[i] - h_i[i]))**2
 
@@ -322,16 +332,19 @@ class MS_MHE_PE:
             R1[i,:] = self.reg1[i,:]*self.reg1[i,i]
         for i in range(7):
             R2[i,:] = self.reg2[i,:]*self.reg2[i,i]
+        R_mu = np.identity(7)
+        for i in range(7): R_mu[i, i] = (self.reg2[i, i] / self.model_pen[i]) ** 2
 
-        grad[0:7] = np.matmul(np.transpose(dh_i[0]), np.multiply(R1, self.o.h(var[0:3], 'off') - self.y[0])) \
-                    - np.matmul(np.transpose(dg_i[0]), self.pen*np.multiply(R2, var[7:2*7] - g_i[0]))  # dJ/dx
+        grad[0:7] = np.matmul(np.transpose(dh_i[0]), np.matmul(R1, self.o.h(var[0:3], 'off') - self.y[0])) \
+                    - np.matmul(np.transpose(dg_i[0]), self.pen*np.matmul(R2, var[7:2*7] - g_i[0]))  + \
+                    np.matmul(R_mu, var[0:7] - self.x_prior)# dJ/dx
 
         for i in range(1,self.N):
-            grad[i*7:(i+1)*7] = np.matmul(np.transpose(dh_i[i]), np.multiply(R1, self.o.h(var[i*7:i*7+3], 'off') - self.y[i])) \
-                                - np.matmul(np.transpose(dg_i[i]), self.pen*np.multiply(R2, var[(i+1)*7:(i+2)*7] - g_i[i]))\
-                                + self.pen*np.multiply(R2,var[i*7:(i+1)*7] - g_i[i-1])
-        grad[self.N*7:(self.N+1)*7] = np.matmul(np.transpose(dh_i[self.N]),  np.multiply(R1, self.o.h(var[self.N*7:self.N*7+3], 'off') - self.y[self.N])) \
-                                            + self.pen*np.multiply(R2, var[self.N*7:(self.N+1)*7] - g_i[self.N-1])
+            grad[i*7:(i+1)*7] = np.matmul(np.transpose(dh_i[i]), np.matmul(R1, self.o.h(var[i*7:i*7+3], 'off') - self.y[i])) \
+                                - np.matmul(np.transpose(dg_i[i]), self.pen*np.matmul(R2, var[(i+1)*7:(i+2)*7] - g_i[i]))\
+                                + self.pen*np.matmul(R2,var[i*7:(i+1)*7] - g_i[i-1])
+        grad[self.N*7:(self.N+1)*7] = np.matmul(np.transpose(dh_i[self.N]),  np.matmul(R1, self.o.h(var[self.N*7:self.N*7+3], 'off') - self.y[self.N])) \
+                                            + self.pen*np.matmul(R2, var[self.N*7:(self.N+1)*7] - g_i[self.N-1])
 
         # checking method
         # for l in range(len(var)):
@@ -351,8 +364,6 @@ class MS_MHE_PE:
         return grad
 
 
-
-
     def hessian(self, var):
 
         # The function assumes that the second derivatives of f and h are null
@@ -363,6 +374,8 @@ class MS_MHE_PE:
             R1[i,:] = self.reg1[i,:]*self.reg1[i,i]
         for i in range(7):
             R2[i,:] = self.reg2[i,:]*self.reg2[i,i]
+        R_mu = np.identity(7)
+        for i in range(7): R_mu[i, i] = (self.reg2[i, i] / self.model_pen[i]) ** 2
 
         self.ekf.P = np.copy(self.P0)
         results = self.dgdx(x=var[0:7], P_i=self.ekf.P, y_i=self.y[1])
@@ -371,7 +384,7 @@ class MS_MHE_PE:
         dhdx = self.dh(var[0:7])
         dgdx_minus = dgdx
 
-        H[0:7, 0:7] = np.matmul(np.transpose(dhdx), np.matmul(R1, dhdx)) + self.pen*np.matmul(np.transpose(dgdx), np.matmul(R2, dgdx))  # dJ/d(x^2)
+        H[0:7, 0:7] = np.matmul(np.transpose(dhdx), np.matmul(R1, dhdx)) + self.pen*np.matmul(np.transpose(dgdx), np.matmul(R2, dgdx)) + self.mu*R_mu # dJ/d(x^2)
         H[0:7, 2*7:3*7] = -self.pen*np.matmul(np.transpose(dgdx), R2)  # dJ/d(x_i)d(x_i+1)
 
         for i in range(1, self.N):  # it does not cover last point
@@ -423,6 +436,7 @@ class MS_MHE_PE:
         self.ekf.predict(fx=self.m.f)
         self.ekf.update(z=last_y, HJacobian=self.dh, Hx=self.o.h)
         self.vars[self.N * 7:self.N * 7 + 7] = self.ekf.x # new value obtained at t = k+1  from x_k+1 = g(x_sol_k)
+        self.x_prior = self.vars[0:7]
 
         # it is assumed that the horizon is sufficiently small such that all measurements are of the same order at
         # end and beginning of the horizon
