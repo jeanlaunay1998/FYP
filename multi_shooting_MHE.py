@@ -8,7 +8,7 @@ import sys
 from scipy.optimize import minimize
 
 class multishooting:
-    def __init__(self, estimation_model, true_system, observer, horizon, measurement_lapse, pen1, pen2, Q, R, opt_method='Newton LS'):
+    def __init__(self, estimation_model, true_system, observer, horizon, measurement_lapse, pen1, pen2, Q, R, arrival, opt_method='Newton LS'):
         self.N = horizon
         self.m = estimation_model
         self.d = true_system
@@ -42,7 +42,7 @@ class multishooting:
 
         # VARIABLES FOR ARRIVAL COST
         self.x_prior = np.zeros(7)
-        self.mu = 1e0
+        self.mu = arrival
 
 
     def estimator_initilisation(self, step, y_measured):
@@ -463,7 +463,7 @@ class multishooting:
             self.vars = BFGS(self.vars, hess, self.cost, self.gradient, self.N)
         elif self.method == 'Newton LS':
             print(self.cost(self.vars))
-            for i in range(20):
+            for i in range(10):
                 self.vars = newton_iter_selection(self.vars, grad, hess, self.N, self.cost, 'on')
                 grad = self.gradient(self.vars)
                 hess = self.hessian(self.vars)
