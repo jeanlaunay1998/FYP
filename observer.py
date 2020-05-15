@@ -52,9 +52,12 @@ class SateliteObserver:
         return y
 
     def h_inv(self, d, el, az):
-        rz = d * np.sin(el)
-        rx = ((d ** 2 - rz ** 2) / (1 + np.tan(az) ** 2)) ** 0.5
-        ry = -rx * np.tan(az)
+        rz = d*np.sin(el)
+        rx = - d*np.cos(el)*np.cos(az)
+        ry = d*np.cos(el)*np.sin(az)
+        # rz = d * np.sin(el)
+        # rx = ((d ** 2 - rz ** 2) / (1 + np.tan(az) ** 2)) ** 0.5
+        # ry = -rx * np.tan(az)
 
         return [rx, ry, rz]
 

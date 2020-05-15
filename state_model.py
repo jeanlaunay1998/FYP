@@ -29,17 +29,13 @@ class model:
         distance = y_o[0]
         elevation = y_o[1]
         azimuth = y_o[2]
-        rz = distance * np.sin(elevation)
-        rx = ((distance ** 2 - rz ** 2) / (1 + np.tan(azimuth) ** 2)) ** 0.5
-        ry = -rx * np.tan(azimuth)
+        rx ,ry, rz = o.h_inv(distance, elevation, azimuth)
         r = np.matmul(np.linalg.inv(o.transform_M), [rx, ry, rz + o.R])
 
         distance = y_minus1[0]
         elevation = y_minus1[1]
         azimuth = y_minus1[2]
-        rz = distance * np.sin(elevation)
-        rx = ((distance ** 2 - rz ** 2) / (1 + np.tan(azimuth) ** 2)) ** 0.5
-        ry = -rx * np.tan(azimuth)
+        rx ,ry, rz = o.h_inv(distance, elevation, azimuth)
         rminus = np.matmul(np.linalg.inv(o.transform_M), [rx, ry, rz + o.R])
 
         self.r = r

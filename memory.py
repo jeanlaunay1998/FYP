@@ -32,25 +32,26 @@ class Memory:
             self.y_model.append(y_model)
             self.t.append(time)
 
-    def transform2seu(self, real_x, Sk, KF_states, EKF_states):
+    def transform2seu(self, real_x, Sk, KF_states, EKF_states, transform='on'):
         print(len(KF_states))
         KF_states = np.array(KF_states)
         EKF_states = np.array(EKF_states)
         print(type(KF_states))
-
-        for i in range(len(real_x)):
-            real_x[i, 0, :] = self.o.position_transform(real_x[i,0,:])
-            real_x[i, 1, :] = np.matmul(self.o.transform_M, real_x[i,1,:])
-            KF_states[i, 0:3] = self.o.position_transform(KF_states[i,0:3])
-            KF_states[i, 3:6] = np.matmul(self.o.transform_M, KF_states[i, 3:6])
-            EKF_states[i, 0:3] = self.o.position_transform(EKF_states[i,0:3])
-            EKF_states[i, 3:6] = np.matmul(self.o.transform_M, EKF_states[i, 3:6])
+        if transform=='on':
+            for i in range(len(real_x)):
+                real_x[i, 0, :] = self.o.position_transform(real_x[i,0,:])
+                real_x[i, 1, :] = np.matmul(self.o.transform_M, real_x[i,1,:])
+                KF_states[i, 0:3] = self.o.position_transform(KF_states[i,0:3])
+                KF_states[i, 3:6] = np.matmul(self.o.transform_M, KF_states[i, 3:6])
+                EKF_states[i, 0:3] = self.o.position_transform(EKF_states[i,0:3])
+                EKF_states[i, 3:6] = np.matmul(self.o.transform_M, EKF_states[i, 3:6])
 
         for i in range(self.size):
             self.states[i] = np.array(self.states[i])
-            for j in range(len(self.states[i])):
-                self.states[i][j, self.N[i], 0:3] = self.o.position_transform(self.states[i][j, self.N[i], 0:3])
-                self.states[i][j, self.N[i], 3:6] = np.matmul(self.o.transform_M, self.states[i][j, self.N[i], 3:6])
+            if transform=='on':
+                for j in range(len(self.states[i])):
+                    self.states[i][j, self.N[i], 0:3] = self.o.position_transform(self.states[i][j, self.N[i], 0:3])
+                    self.states[i][j, self.N[i], 3:6] = np.matmul(self.o.transform_M, self.states[i][j, self.N[i], 3:6])
         return real_x, KF_states, EKF_states
 
 
@@ -70,7 +71,7 @@ class Memory:
 
         # transform to seu coordinates
         real = np.array(real_x)
-        real_x, KF_states, EKF_states = self.transform2seu(real, Sk, KF_states, EKF_states)
+        real_x, KF_states, EKF_states = self.transform2seu(real, Sk, KF_states, EKF_states, 'off')
 
             # ballistic coefficient plot
         plt.figure(1)
