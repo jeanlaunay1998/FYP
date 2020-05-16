@@ -71,7 +71,7 @@ class Memory:
 
         # transform to seu coordinates
         real = np.array(real_x)
-        real_x, KF_states, EKF_states = self.transform2seu(real, Sk, KF_states, EKF_states, 'off')
+        real_x, KF_states, EKF_states = self.transform2seu(real, Sk, KF_states, EKF_states, 'on')
 
             # ballistic coefficient plot
         plt.figure(1)
@@ -102,12 +102,12 @@ class Memory:
         # plot Estimates
 
         for j in range(3):
-                y = 100*np.abs(np.divide(np.array(kf_y)[self.N[0]:len(KF_states), j] - np.array(y_real)[self.N[0]:len(y_real), j], np.array(y_real)[self.N[0]:len(y_real), j], \
-                                         out=np.array(y_real)[self.N[0]:len(y_real), j], where=np.array(y_real)[self.N[0]:len(y_real), j]!=0))
-                y1 = 100*np.abs(np.divide(np.array(ekf_y)[self.N[0]:len(EKF_states), j] - np.array(y_real)[self.N[0]:len(y_real), j], np.array(y_real)[self.N[0]:len(y_real), j], \
-                                         out=np.array(y_real)[self.N[0]:len(y_real), j], where=np.array(y_real)[self.N[0]:len(y_real), j]!=0))
-                ax[j, 1].plot(self.t, y, '-b')
-                ax[j, 1].plot(self.t, y1, '-r')
+            y = 100*np.abs(np.divide(np.array(kf_y)[self.N[0]:len(KF_states), j] - np.array(y_real)[self.N[0]:len(y_real), j], np.array(y_real)[self.N[0]:len(y_real), j], \
+                                     out=np.array(y_real)[self.N[0]:len(y_real), j], where=np.array(y_real)[self.N[0]:len(y_real), j]!=0))
+            y1 = 100*np.abs(np.divide(np.array(ekf_y)[self.N[0]:len(EKF_states), j] - np.array(y_real)[self.N[0]:len(y_real), j], np.array(y_real)[self.N[0]:len(y_real), j], \
+                                     out=np.array(y_real)[self.N[0]:len(y_real), j], where=np.array(y_real)[self.N[0]:len(y_real), j]!=0))
+            ax[j, 1].plot(self.t, y, '-b')
+            ax[j, 1].plot(self.t, y1, '-r')
 
         lim = [0.5, 5, 30]
         for i in range(self.size):
@@ -208,8 +208,63 @@ class Memory:
         handles, labels = ax[2,0].get_legend_handles_labels()
         fig.legend(handles, labels, loc='upper center',  ncol=4)
 
+        # Analyse data
+        p_av_rel_error_UKF = []
+        p_av_error_UKF = []
+        v_av_rel_error_UKF = []
+        p_av_error_EKF = []
+        p_av_rel_error_EKF = []
+        v_av_error_UKF = []
+        v_av_rel_error_EKF = []
+        v_av_error_EKF = []
+        for j in range(3):
+            p_av_rel_error_UKF.append(np.sum(np.abs(np.divide(KF_states[self.N[0]:len(KF_states), j] - real[self.N[0]:len(Sk), 0, j],  real[self.N[0]:len(Sk), 0, j], \
+                                     out=np.zeros_like(real[self.N[0]:len(Sk), 0, j]), where=real[self.N[0]:len(Sk), 0, j]!=0)))/len(KF_states))
+            p_av_error_UKF.append(np.sum(np.abs(KF_states[self.N[0]:len(KF_states), j] - real[self.N[0]:len(Sk), 0, j]))/len(KF_states))
 
+            p_av_rel_error_EKF.append(np.sum(np.abs(np.divide(EKF_states[self.N[0]:len(EKF_states), j] - real[self.N[0]:len(Sk), 0, j],  real[self.N[0]:len(Sk), 0, j], \
+                                     out=np.zeros_like(real[self.N[0]:len(Sk), 0, j]), where=real[self.N[0]:len(Sk), 0, j]!=0)))/len(EKF_states))
+            p_av_error_EKF.append(np.sum(np.abs(KF_states[self.N[0]:len(EKF_states), j] - real[self.N[0]:len(Sk), 0, j]))/len(EKF_states))
+
+            v_av_rel_error_UKF.append(np.sum(np.abs(np.divide(KF_states[self.N[0]:len(KF_states), j+3] - real[self.N[0]:len(Sk), 1, j],  real[self.N[0]:len(Sk), 1, j], \
+                                     out=np.zeros_like(real[self.N[0]:len(Sk), 1, j]), where=real[self.N[0]:len(Sk), 1, j]!=0)))/len(KF_states))
+            v_av_error_UKF.append(np.sum(np.abs(KF_states[self.N[0]:len(KF_states), j+3] - real[self.N[0]:len(Sk), 1, j]))/len(KF_states))
+
+            v_av_rel_error_EKF.append(np.sum(np.abs(np.divide(EKF_states[self.N[0]:len(EKF_states), j+3] - real[self.N[0]:len(Sk), 1, j],  real[self.N[0]:len(Sk), 1, j], \
+                                     out=np.zeros_like(real[self.N[0]:len(Sk), 1, j]), where=real[self.N[0]:len(Sk), 1, j]!=0)))/len(KF_states))
+            v_av_error_EKF.append(np.sum(np.abs(KF_states[self.N[0]:len(EKF_states), j+3] - real[self.N[0]:len(Sk), 1, j]))/len(EKF_states))
+
+        print("Extended Kalman filter average relative error ; Average root square error:  ")
+        print("     - Position: ", p_av_rel_error_EKF, '  ;  ', p_av_error_EKF)
+        print("     - Velocity: ", v_av_rel_error_EKF,  '  ;  ', v_av_error_EKF)
+
+        print("Unscented Kalman filter average relative error ; Average root square error:  ")
+        print("     - Position: ", p_av_rel_error_UKF, '  ;  ', p_av_error_UKF)
+        print("     - Velocity: ", v_av_rel_error_UKF,  '  ;  ', v_av_error_UKF)
+
+        for i in range(self.size):
+            p_av_rel_MHE = []
+            p_av_MHE = []
+            v_av_rel_MHE = []
+            v_av_MHE = []
+            for j in range(3):
+                p_av_rel_MHE.append(np.sum(np.abs(np.divide(self.states[i][:, self.N[i], j] - real[self.N[i]:len(Sk), 0, j],  real[self.N[i]:len(Sk), 0, j], \
+                                                            out=np.zeros_like(real[self.N[i]:len(Sk), 0, j]), where=real[self.N[i]:len(Sk), 0, j]!=0)))/len(self.states[i]))
+                p_av_MHE.append(np.sum(np.abs(self.states[i][:, self.N[i], j] - real[self.N[i]:len(Sk), 0, j]))/len(self.states[i]))
+                v_av_rel_MHE.append(np.sum(np.abs(np.divide(self.states[i][:, self.N[i], j+3] - real[self.N[i]:len(Sk), 1, j],  real[self.N[i]:len(Sk), 1, j], \
+                                                            out=np.zeros_like(real[self.N[i]:len(Sk), 1, j]), where=real[self.N[i]:len(Sk), 1, j]!=0)))/len(self.states[i]))
+                v_av_MHE.append(np.sum(np.abs(self.states[i][:, self.N[i], j+3] - real[self.N[i]:len(Sk), 1, j]))/len(self.states[i]))
+            print(labelstring[i], 'average relative error ; Average root square error:  ')
+            print("     - Position: ", p_av_rel_MHE, '  ;  ', p_av_MHE)
+            print("     - Velocity: ", v_av_rel_MHE, '  ;  ', v_av_MHE)
+
+        labelstring[i]
         plt.show()
+
+
+
+
+
 
 # Plot approximation model variables
         # ax[0, 0].plot(self.t, np.array(self.y_model)[:, 0], 'r')

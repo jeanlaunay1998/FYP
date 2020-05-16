@@ -25,20 +25,22 @@ class multishooting:
         self.pen = 1  # penalty factor
         self.pen1 = 0  # factor to remove Lagrangians (note this is highly inefficient since there will be un-used variables)
 
-        # self.reg1 = self.R # LA.inv(self.R)  # np.zeros(3)  # distance, azimuth, elevation
-        # self.reg2 = self.Q # LA.inv(self.Q)  # np.zeros(7)  # position, velocity and ballistic coeff
+        self.reg1 = np.power(LA.inv(self.R),0.5) # np.zeros(3)  # distance, azimuth, elevation
+        # self.reg2 = LA.inv(self.Q)  # np.zeros(7)  # position, velocity and ballistic coeff
+        print(self.reg1)
 
-        self.reg1 = np.identity(3)
+        # self.reg1 = np.identity(3)
         self.reg2 = np.identity(7)*1e-5
-        self.reg2[6,6] = 0.1*self.reg2[6,6]
-
+        # self.reg2[6,6] = 0.1*self.reg2[6,6]
+        #
         self.measurement_pen = pen1
         self.model_pen = pen2
-
-        for i in range(3):
-            self.reg1[i,i] = self.measurement_pen[i]
+        #
+        # for i in range(3):
+        #     self.reg1[i,i] = self.measurement_pen[i]
         for i in range(7):
             self.reg2[i,i] = self.model_pen[i]
+        print(self.reg2)
 
         # VARIABLES FOR ARRIVAL COST
         self.x_prior = np.zeros(7)
@@ -65,35 +67,35 @@ class multishooting:
         # end and beginning of the horizon
         # measurements reg
 
-        for i in range(3):
-            if np.abs(self.y[0, i]) < 1:
-                mult = 1
-                while mult * np.abs(self.y[0, i]) <= 1:
-                    mult = mult * 10
-                self.reg1[i, i] = self.measurement_pen[i] * mult
-            else:
-                mult = 1
-                while np.abs(self.y[0, i]) // mult >= 10:
-                    mult = mult * 10
-                self.reg1[i, i] = self.measurement_pen[i] / mult
-
-        # position and velocity reg
-        for i in range(2):
-            mult = 1
-            if np.abs(self.vars[i * 3]) < 1:
-                while mult * np.abs(self.vars[i * 3]) <= 1:
-                    mult = mult * 10
-                for j in range(3): self.reg2[i * 3 + j, i * 3 + j] = self.model_pen[i * 3 + j] * mult
-            else:
-                while np.abs(self.vars[i * 3]) // mult >= 10:
-                    mult = mult * 10
-                for j in range(3): self.reg2[i * 3 + j, i * 3 + j] = self.model_pen[i * 3 + j] / mult
-
-        # ballistic coeff reg
-        mult = 1
-        while np.abs(self.vars[6]) // mult >= 10:
-            mult = mult * 10
-        self.reg2[6, 6] = self.model_pen[6] / mult
+        # for i in range(3):
+        #     if np.abs(self.y[0, i]) < 1:
+        #         mult = 1
+        #         while mult * np.abs(self.y[0, i]) <= 1:
+        #             mult = mult * 10
+        #         self.reg1[i, i] = self.measurement_pen[i] * mult
+        #     else:
+        #         mult = 1
+        #         while np.abs(self.y[0, i]) // mult >= 10:
+        #             mult = mult * 10
+        #         self.reg1[i, i] = self.measurement_pen[i] / mult
+        #
+        # # position and velocity reg
+        # for i in range(2):
+        #     mult = 1
+        #     if np.abs(self.vars[i * 3]) < 1:
+        #         while mult * np.abs(self.vars[i * 3]) <= 1:
+        #             mult = mult * 10
+        #         for j in range(3): self.reg2[i * 3 + j, i * 3 + j] = self.model_pen[i * 3 + j] * mult
+        #     else:
+        #         while np.abs(self.vars[i * 3]) // mult >= 10:
+        #             mult = mult * 10
+        #         for j in range(3): self.reg2[i * 3 + j, i * 3 + j] = self.model_pen[i * 3 + j] / mult
+        #
+        # # ballistic coeff reg
+        # mult = 1
+        # while np.abs(self.vars[6]) // mult >= 10:
+        #     mult = mult * 10
+        # self.reg2[6, 6] = self.model_pen[6] / mult
 
 
 
@@ -112,7 +114,7 @@ class multishooting:
             f_i[(i//2)*7:(i//2)*7+3], f_i[(i//2)*7+3:(i//2)*7+6], a, f_i[(i//2)*7+6] = self.m.f(var[i*7:i*7+3], var[i*7+3:i*7+6], var[i*7+6], 'off')
 
         R_mu = np.identity(7)
-        for i in range(7): R_mu[i, i] = self.reg2[i, i]/self.model_pen[i]
+        for i in range(7): R_mu[i, i] = self.reg2[i, i] #/self.model_pen[i]
 
         # Arrival cost
         J = 0.5*self.mu*LA.norm(np.matmul(R_mu, self.vars[0:7] - self.x_prior))**2
@@ -278,7 +280,7 @@ class multishooting:
         for i in range(7):
             R2[i,:] = self.reg2[i,:]*self.reg2[i,i]
         R_mu = np.identity(7)
-        for i in range(7): R_mu[i, i] = (self.reg2[i, i] / self.model_pen[i])**2
+        for i in range(7): R_mu[i, i] = (self.reg2[i, i])**2 # / self.model_pen[i])**2
 
         # grad[0:7] = np.matmul(np.transpose(dh_i[0]), np.multiply(R1, self.o.h(var[0:3], 'off') - self.y[0])) \
         grad[0:7] = np.matmul(np.transpose(dh_i[0]), np.matmul(R1, self.o.h(var[0:3], 'off') - self.y[0])) \
@@ -346,7 +348,7 @@ class multishooting:
         for i in range(7):
             R2[i, :] = self.reg2[i, :] * self.reg2[i, i]
         R_mu = np.identity(7)
-        for i in range(7): R_mu[i, i] = (self.reg2[i, i] / self.model_pen[i]) ** 2
+        for i in range(7): R_mu[i, i] = (self.reg2[i, i])**2 # / self.model_pen[i]) ** 2
 
         dhdx = self.dh(var[0:7])
         dfdx = self.dfdx(var[0:7])
@@ -421,35 +423,35 @@ class multishooting:
         # end and beginning of the horizon
         # measurements reg
 
-        for i in range(3):
-            if np.abs(self.y[0, i]) < 1:
-                mult = 1
-                while mult * np.abs(self.y[0, i]) <= 1:
-                    mult = mult * 10
-                self.reg1[i,i] = self.measurement_pen[i] * mult
-            else:
-                mult = 1
-                while np.abs(self.y[0, i]) // mult >= 10:
-                    mult = mult * 10
-                self.reg1[i,i] = self.measurement_pen[i] / mult
-
-        # position and velocity reg
-        for i in range(2):
-            mult = 1
-            if np.abs(self.vars[i * 3]) < 1:
-                while mult * np.abs(self.vars[i * 3]) <= 1:
-                    mult = mult * 10
-                for j in range(3): self.reg2[i*3 + j, i*3 + j] =  self.model_pen[i*3+j] * mult
-            else:
-                while np.abs(self.vars[i * 3]) // mult >= 10:
-                    mult = mult * 10
-                for j in range(3): self.reg2[i*3 + j, i*3 + j] = self.model_pen[i*3+j] / mult
-
-        # ballistic coeff reg
-        mult = 1
-        while np.abs(self.vars[6]) // mult >= 10:
-            mult = mult * 10
-        self.reg2[6, 6] = self.model_pen[6] / mult
+        # for i in range(3):
+        #     if np.abs(self.y[0, i]) < 1:
+        #         mult = 1
+        #         while mult * np.abs(self.y[0, i]) <= 1:
+        #             mult = mult * 10
+        #         self.reg1[i,i] = self.measurement_pen[i] * mult
+        #     else:
+        #         mult = 1
+        #         while np.abs(self.y[0, i]) // mult >= 10:
+        #             mult = mult * 10
+        #         self.reg1[i,i] = self.measurement_pen[i] / mult
+        #
+        # # position and velocity reg
+        # for i in range(2):
+        #     mult = 1
+        #     if np.abs(self.vars[i * 3]) < 1:
+        #         while mult * np.abs(self.vars[i * 3]) <= 1:
+        #             mult = mult * 10
+        #         for j in range(3): self.reg2[i*3 + j, i*3 + j] =  self.model_pen[i*3+j] * mult
+        #     else:
+        #         while np.abs(self.vars[i * 3]) // mult >= 10:
+        #             mult = mult * 10
+        #         for j in range(3): self.reg2[i*3 + j, i*3 + j] = self.model_pen[i*3+j] / mult
+        #
+        # # ballistic coeff reg
+        # mult = 1
+        # while np.abs(self.vars[6]) // mult >= 10:
+        #     mult = mult * 10
+        # self.reg2[6, 6] = self.model_pen[6] / mult
 
 
     def estimation(self, mea_pen=[], mod_pen=[]):
