@@ -42,6 +42,7 @@ class Memory:
                 EKF_states[i, 3:6] = np.matmul(self.o.transform_M, EKF_states[i, 3:6])
 
         for i in range(self.size):
+
             self.states[i] = np.array(self.states[i])
             if transform=='on':
                 for j in range(len(self.states[i])):
@@ -165,7 +166,7 @@ class Memory:
         for j in range(3):
             y = np.abs(np.divide(EKF_states[self.N[0]:len(EKF_states), j+3] - real[self.N[0]:len(Sk), 1, j],  real[self.N[0]:len(Sk), 1, j], \
                                      out=np.zeros_like(real[self.N[0]:len(Sk), 1, j]), where=real[self.N[0]:len(Sk), 1, j]!=0))
-            ax[j, 1].plot(self.t, 100 * y, '-b')
+            ax[j, 1].plot(self.t, 100 * y, '-r')
 
         for i in range(self.size):
             ax[0, 0].plot(self.t[self.N[i]-self.N[0]:len(self.t)], self.states[i][:, self.N[i], 3], '-')
