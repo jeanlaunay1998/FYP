@@ -2,7 +2,6 @@ import numpy.linalg as LA
 import numpy as np
 import matplotlib.pyplot as plt
 from filterpy.kalman import MerweScaledSigmaPoints
-from filterpy.kalman import UnscentedKalmanFilter as UKF
 # from filterpy.kalman import ExtendedKalmanFilter
 from extendedKF import ExtendedKalmanFilter
 import sys
@@ -72,20 +71,11 @@ for i in range(len(N)):
 memory = Memory(o, N, len(N))
 
 
-# unscented kalman filter
-points = MerweScaledSigmaPoints(n=7, alpha=.1, beta=2., kappa=-1)
-ukf = UKF(dim_x=7, dim_z=3, fx=m.f, hx=o.h, dt=measurement_lapse, points=points)
-ukf.P = P0
-ukf.Q = Q
-ukf.R = R
-
-
 # extended kalman filter
 ekf = ExtendedKalmanFilter(dim_x=7, dim_z=3, dim_u=0)
 ekf.P = P0
 ekf.Q = Q
 ekf.R = R
-
 
 
 time = [0]
@@ -118,11 +108,9 @@ while height > 5000 and t < t_lim:
             real_x = [[d.r, d.v]]
             real_beta = [d.beta[len(d.beta)-1]]
 
-            # initialisation of the unscented kalman filter
-            ukf.x = np.array([m.r[0], m.r[1], m.r[2], m.v[0], m.v[1], m.v[2], m.beta])
+            # initialisation of the Extended kalman filter
             ekf.x = np.array([m.r[0], m.r[1], m.r[2], m.v[0], m.v[1], m.v[2], m.beta])
-            UKF_state = [np.copy(ukf.x)]
-            EKF_state = [np.copy(ukf.x)]
+            EKF_state = [np.copy(ekf.x)]
 
         else:
             m.step_update()  # the model is updated every 0.5 seconds (problem with discretization)
@@ -134,13 +122,10 @@ while height > 5000 and t < t_lim:
             real_x.append([d.r, d.v])
             real_beta.append(d.beta[len(d.beta) - 1])
 
-            ukf.predict()
             ekf.F = opt[0].dfdx(ekf.x)
             ekf.predict(fx=m.f)
 
-            ukf.update(y_real[len(y_real)-1])
             ekf.update(z=y_real[len(y_real)-1], HJacobian=opt[0].dh, Hx=o.h)
-            UKF_state.append(np.copy(ukf.x))
             EKF_state.append(np.copy(ekf.x))
 
 
@@ -159,7 +144,7 @@ while height > 5000 and t < t_lim:
                 opt[i].estimation()
                 memory.save_data(t, opt[i].vars, o.h(m.r, 'off'), opt[i].cost(opt[i].vars), i)
 
-memory.make_plots(real_x, real_beta, y_real, m.Sk, UKF_state, EKF_state)
+memory.make_plots(real_x, real_beta, y_real, m.Sk, EKF_state)
 # fig, ax = plt.subplots(5,2)
 # for i in range(10):
 #     print([np.array(coeffs)[:,i]])

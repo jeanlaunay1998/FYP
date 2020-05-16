@@ -32,17 +32,12 @@ class Memory:
             self.y_model.append(y_model)
             self.t.append(time)
 
-    def transform2seu(self, real_x, Sk, KF_states, EKF_states, transform='on'):
-        print(len(KF_states))
-        KF_states = np.array(KF_states)
+    def transform2seu(self, real_x, Sk, EKF_states, transform='on'):
         EKF_states = np.array(EKF_states)
-        print(type(KF_states))
         if transform=='on':
             for i in range(len(real_x)):
                 real_x[i, 0, :] = self.o.position_transform(real_x[i,0,:])
                 real_x[i, 1, :] = np.matmul(self.o.transform_M, real_x[i,1,:])
-                KF_states[i, 0:3] = self.o.position_transform(KF_states[i,0:3])
-                KF_states[i, 3:6] = np.matmul(self.o.transform_M, KF_states[i, 3:6])
                 EKF_states[i, 0:3] = self.o.position_transform(EKF_states[i,0:3])
                 EKF_states[i, 3:6] = np.matmul(self.o.transform_M, EKF_states[i, 3:6])
 
@@ -52,15 +47,13 @@ class Memory:
                 for j in range(len(self.states[i])):
                     self.states[i][j, self.N[i], 0:3] = self.o.position_transform(self.states[i][j, self.N[i], 0:3])
                     self.states[i][j, self.N[i], 3:6] = np.matmul(self.o.transform_M, self.states[i][j, self.N[i], 3:6])
-        return real_x, KF_states, EKF_states
+        return real_x, EKF_states
 
 
 
-    def make_plots(self, real_x, real_beta, y_real, Sk, KF_states, EKF_states):
-        kf_y = []
+    def make_plots(self, real_x, real_beta, y_real, Sk, EKF_states):
         ekf_y = []
-        for i in range(len(KF_states)):
-            kf_y.append(self.o.h(KF_states[i]))
+        for i in range(len(EKF_states)):
             ekf_y.append(self.o.h(EKF_states[i]))
 
         labelstring = []
@@ -71,12 +64,11 @@ class Memory:
 
         # transform to seu coordinates
         real = np.array(real_x)
-        real_x, KF_states, EKF_states = self.transform2seu(real, Sk, KF_states, EKF_states, 'on')
+        real_x, EKF_states = self.transform2seu(real, Sk, EKF_states, 'on')
 
             # ballistic coefficient plot
         plt.figure(1)
         plt.plot(self.t, real_beta[self.N[0]:len(real_beta)], 'k', label='True system')
-        plt.plot(self.t, KF_states[self.N[0]:len(KF_states), 6], 'b', label='Unscented Kalman filter')
         plt.plot(self.t, EKF_states[self.N[0]:len(EKF_states), 6], 'r', label='Extended Kalman filter')
         for i in range(self.size):
             plt.plot(self.t[self.N[i]-self.N[0]:len(self.t)], self.states[i][:, self.N[i], 6], '-', label=labelstring[i])
@@ -87,26 +79,20 @@ class Memory:
         # Measurements plot
         fig, ax = plt.subplots(3, 2)
         ax[0, 0].plot(self.t, np.array(y_real)[self.N[0]:len(y_real), 0], 'k')
-        ax[0, 0].plot(self.t, np.array(kf_y)[self.N[0]:len(KF_states), 0], 'b')
         ax[0, 0].plot(self.t, np.array(ekf_y)[self.N[0]:len(EKF_states), 0], 'r')
         ax[0, 0].set(xlabel='Time (s)', ylabel='d (m)')
         ax[1, 0].plot(self.t, np.array(y_real)[self.N[0]:len(y_real), 1], 'k')
-        ax[1, 0].plot(self.t, np.array(kf_y)[self.N[0]:len(KF_states), 1], 'b')
         ax[1, 0].plot(self.t, np.array(ekf_y)[self.N[0]:len(EKF_states), 1], 'r')
         ax[1, 0].set(xlabel='Time (s)', ylabel='el (radians)')
         ax[2, 0].plot(self.t, np.array(y_real)[self.N[0]:len(y_real), 2], 'k', label='True system')
-        ax[2, 0].plot(self.t, np.array(kf_y)[self.N[0]:len(KF_states), 2], 'b', label='Unscented Kalman filter')
         ax[2, 0].plot(self.t, np.array(ekf_y)[self.N[0]:len(EKF_states), 2], 'r', label='Extended Kalman filter')
         ax[2, 0].set(xlabel='Time (s)', ylabel='az (radians)')
 
         # plot Estimates
 
         for j in range(3):
-            y = 100*np.abs(np.divide(np.array(kf_y)[self.N[0]:len(KF_states), j] - np.array(y_real)[self.N[0]:len(y_real), j], np.array(y_real)[self.N[0]:len(y_real), j], \
-                                     out=np.array(y_real)[self.N[0]:len(y_real), j], where=np.array(y_real)[self.N[0]:len(y_real), j]!=0))
             y1 = 100*np.abs(np.divide(np.array(ekf_y)[self.N[0]:len(EKF_states), j] - np.array(y_real)[self.N[0]:len(y_real), j], np.array(y_real)[self.N[0]:len(y_real), j], \
                                      out=np.array(y_real)[self.N[0]:len(y_real), j], where=np.array(y_real)[self.N[0]:len(y_real), j]!=0))
-            ax[j, 1].plot(self.t, y, '-b')
             ax[j, 1].plot(self.t, y1, '-r')
 
         lim = [0.5, 5, 30]
@@ -130,25 +116,18 @@ class Memory:
 
         # position plot
         fig, ax = plt.subplots(3, 2)
-        print(type(KF_states))
         ax[0, 0].plot(self.t, real[self.N[0]:len(y_real), 0, 0], 'k')
-        ax[0, 0].plot(self.t, KF_states[self.N[0]:len(KF_states), 0], 'b')
         ax[0, 0].plot(self.t, EKF_states[self.N[0]:len(EKF_states), 0], 'r')
         ax[0, 0].set(xlabel='Time (s)', ylabel='Position S (m)')
         ax[1, 0].plot(self.t, real[self.N[0]:len(y_real), 0, 1], 'k')
-        ax[1, 0].plot(self.t, KF_states[self.N[0]:len(KF_states), 1], 'b')
         ax[1, 0].plot(self.t, EKF_states[self.N[0]:len(EKF_states), 1], 'r')
         ax[1, 0].set(xlabel='Time (s)', ylabel='Position E (m)')
         ax[2, 0].plot(self.t, real[self.N[0]:len(y_real), 0, 2], 'k', label='True system')
-        ax[2, 0].plot(self.t, KF_states[self.N[0]:len(KF_states), 2], 'b', label='Unscented Kalman filter')
         ax[2, 0].plot(self.t, EKF_states[self.N[0]:len(EKF_states), 2], 'r', label='Extended Kalman filter')
         ax[2, 0].set(xlabel='Time (s)', ylabel='Position U (m)')
         lim = [1, 5, 1]
 
         for j in range(3):
-            y = np.abs(np.divide(KF_states[self.N[0]:len(KF_states), j] - real[self.N[0]:len(Sk), 0, j],  real[self.N[0]:len(Sk), 0, j], \
-                                     out=np.zeros_like(real[self.N[0]:len(Sk), 0, j]), where=real[self.N[0]:len(Sk), 0, j]!=0))
-            ax[j, 1].plot(self.t, 100 * y, '-b')
             y = np.abs(np.divide(EKF_states[self.N[0]:len(EKF_states), j] - real[self.N[0]:len(Sk), 0, j],  real[self.N[0]:len(Sk), 0, j], \
                                      out=np.zeros_like(real[self.N[0]:len(Sk), 0, j]), where=real[self.N[0]:len(Sk), 0, j]!=0))
             ax[j, 1].plot(self.t, 100 * y, '-r')
@@ -173,21 +152,18 @@ class Memory:
         fig, ax = plt.subplots(3, 2)
 
         ax[0, 0].plot(self.t, real[self.N[0]:len(y_real), 1, 0], 'k')
-        ax[0, 0].plot(self.t, KF_states[self.N[0]:len(KF_states), 3], 'b')
         ax[0, 0].plot(self.t, EKF_states[self.N[0]:len(EKF_states), 3], 'r')
         ax[0, 0].set(xlabel='Time (s)', ylabel='Velocity S (m/s)')
         ax[1, 0].plot(self.t, real[self.N[0]:len(y_real), 1, 1], 'k')
-        ax[1, 0].plot(self.t, KF_states[self.N[0]:len(KF_states), 4], 'b')
         ax[1, 0].plot(self.t, EKF_states[self.N[0]:len(EKF_states), 4], 'r')
         ax[1, 0].set(xlabel='Time (s)', ylabel='Velocity E (m/s)')
         ax[2, 0].plot(self.t, real[self.N[0]:len(y_real), 1, 2], 'k', label='True system')
-        ax[2, 0].plot(self.t, KF_states[self.N[0]:len(KF_states), 5], 'b', label='Unscented Kalman filter')
         ax[2, 0].plot(self.t, EKF_states[self.N[0]:len(EKF_states), 5], 'r', label='Extended Kalman filter')
         ax[2, 0].set(xlabel='Time (s)', ylabel='Velocity U (m/s)')
 
 
         for j in range(3):
-            y = np.abs(np.divide(KF_states[self.N[0]:len(KF_states), j+3] - real[self.N[0]:len(Sk), 1, j],  real[self.N[0]:len(Sk), 1, j], \
+            y = np.abs(np.divide(EKF_states[self.N[0]:len(EKF_states), j+3] - real[self.N[0]:len(Sk), 1, j],  real[self.N[0]:len(Sk), 1, j], \
                                      out=np.zeros_like(real[self.N[0]:len(Sk), 1, j]), where=real[self.N[0]:len(Sk), 1, j]!=0))
             ax[j, 1].plot(self.t, 100 * y, '-b')
 
@@ -209,38 +185,22 @@ class Memory:
         fig.legend(handles, labels, loc='upper center',  ncol=4)
 
         # Analyse data
-        p_av_rel_error_UKF = []
-        p_av_error_UKF = []
-        v_av_rel_error_UKF = []
         p_av_error_EKF = []
         p_av_rel_error_EKF = []
-        v_av_error_UKF = []
         v_av_rel_error_EKF = []
         v_av_error_EKF = []
         for j in range(3):
-            p_av_rel_error_UKF.append(np.sum(np.abs(np.divide(KF_states[self.N[0]:len(KF_states), j] - real[self.N[0]:len(Sk), 0, j],  real[self.N[0]:len(Sk), 0, j], \
-                                     out=np.zeros_like(real[self.N[0]:len(Sk), 0, j]), where=real[self.N[0]:len(Sk), 0, j]!=0)))/len(KF_states))
-            p_av_error_UKF.append(np.sum(np.abs(KF_states[self.N[0]:len(KF_states), j] - real[self.N[0]:len(Sk), 0, j]))/len(KF_states))
-
             p_av_rel_error_EKF.append(np.sum(np.abs(np.divide(EKF_states[self.N[0]:len(EKF_states), j] - real[self.N[0]:len(Sk), 0, j],  real[self.N[0]:len(Sk), 0, j], \
                                      out=np.zeros_like(real[self.N[0]:len(Sk), 0, j]), where=real[self.N[0]:len(Sk), 0, j]!=0)))/len(EKF_states))
-            p_av_error_EKF.append(np.sum(np.abs(KF_states[self.N[0]:len(EKF_states), j] - real[self.N[0]:len(Sk), 0, j]))/len(EKF_states))
-
-            v_av_rel_error_UKF.append(np.sum(np.abs(np.divide(KF_states[self.N[0]:len(KF_states), j+3] - real[self.N[0]:len(Sk), 1, j],  real[self.N[0]:len(Sk), 1, j], \
-                                     out=np.zeros_like(real[self.N[0]:len(Sk), 1, j]), where=real[self.N[0]:len(Sk), 1, j]!=0)))/len(KF_states))
-            v_av_error_UKF.append(np.sum(np.abs(KF_states[self.N[0]:len(KF_states), j+3] - real[self.N[0]:len(Sk), 1, j]))/len(KF_states))
+            p_av_error_EKF.append(np.sum(np.abs(EKF_states[self.N[0]:len(EKF_states), j] - real[self.N[0]:len(Sk), 0, j]))/len(EKF_states))
 
             v_av_rel_error_EKF.append(np.sum(np.abs(np.divide(EKF_states[self.N[0]:len(EKF_states), j+3] - real[self.N[0]:len(Sk), 1, j],  real[self.N[0]:len(Sk), 1, j], \
-                                     out=np.zeros_like(real[self.N[0]:len(Sk), 1, j]), where=real[self.N[0]:len(Sk), 1, j]!=0)))/len(KF_states))
-            v_av_error_EKF.append(np.sum(np.abs(KF_states[self.N[0]:len(EKF_states), j+3] - real[self.N[0]:len(Sk), 1, j]))/len(EKF_states))
+                                     out=np.zeros_like(real[self.N[0]:len(Sk), 1, j]), where=real[self.N[0]:len(Sk), 1, j]!=0)))/len(EKF_states))
+            v_av_error_EKF.append(np.sum(np.abs(EKF_states[self.N[0]:len(EKF_states), j+3] - real[self.N[0]:len(Sk), 1, j]))/len(EKF_states))
 
         print("Extended Kalman filter average relative error ; Average root square error:  ")
         print("     - Position: ", p_av_rel_error_EKF, '  ;  ', p_av_error_EKF)
         print("     - Velocity: ", v_av_rel_error_EKF,  '  ;  ', v_av_error_EKF)
-
-        print("Unscented Kalman filter average relative error ; Average root square error:  ")
-        print("     - Position: ", p_av_rel_error_UKF, '  ;  ', p_av_error_UKF)
-        print("     - Velocity: ", v_av_rel_error_UKF,  '  ;  ', v_av_error_UKF)
 
         for i in range(self.size):
             p_av_rel_MHE = []
