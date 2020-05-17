@@ -1,9 +1,10 @@
 import numpy as np
 from numpy import linalg as LA
+import sys
 
 
 class dynamics:
-    def __init__(self, ho, lat, long, vo, gamma_o, theta_o):
+    def __init__(self, ho, lat, long, vo, gamma_o, theta_o, observer):
         # ho: initial height
         # lat: initial latitude
         # long: initial longitude
@@ -53,6 +54,9 @@ class dynamics:
 
         # Runge Kutta parameters
         self.delta_t = 0.01
+
+        self.observer = observer
+        self.wind_mod = 'off'
 
 
     def temp(self, r):
@@ -150,6 +154,28 @@ class dynamics:
 
         self.h.append(LA.norm(self.r) - self.R)
         self.beta.append(self.ballistic_coef(self.v, self.r))
+
+        # introduce wind at h = 60Km of height
+        if LA.norm(self.r) - self.R < 60*(10**3):
+            if self.wind_mod == 'off':
+                self.wind_mod = 'on'
+                w_induced =  self.wind_introduction()
+                print('wind modification!!!!')
+                for i in range(3):
+                    self.v[i] = self.v[i] + w_induced[i]
+
+
+
+    def wind_introduction(self):
+        angle = np.random.normal(0, 1, size=1)*np.pi
+        W_inf = 300
+        v_SEU = [0, 0, 0]
+        v_SEU[0] = W_inf*np.cos(angle[0])
+        v_SEU[1] = W_inf*np.sin(angle[0])
+        w_induced = np.matmul(LA.inv(self.observer.transform_M), v_SEU)
+
+        return w_induced
+
 
 
 

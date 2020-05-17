@@ -35,8 +35,8 @@ delta = int(0)
 height = 80e3
 
 # Initialisation of true dynamics and approximation model
-d = dynamics(height, 22, 0, 6000, -5, 60)
 o = SateliteObserver(22, 10) #40.24, 3.42)
+d = dynamics(height, 22, 0, 6000, -5, 60, o)
 initialbeta = d.beta[0] + np.random.normal(0, 0.01*d.beta[0], size=1)[0]
 m = model(d.r, d.v, initialbeta, measurement_lapse)
 
@@ -142,7 +142,7 @@ while height > 5000 and t < t_lim:
                 # coeffs.append(np.copy(opt[i].tuning_MHE(real_x, real_beta, step)))
                 # measurementssss = np.array([coeff1[asdfg],coeff2[asdfg],coeff3[asdfg]])
                 # modelss = np.array([coeff4[asdfg], coeff4[asdfg],coeff4[asdfg], coeff7[asdfg], coeff7[asdfg], coeff7[asdfg], coeff10[asdfg]])
-                opt[i].estimation()
+                # opt[i].estimation()
                 memory.save_data(t, opt[i].vars, o.h(m.r, 'off'), opt[i].cost(opt[i].vars), i)
 
 memory.make_plots(real_x, real_beta, y_real, m.Sk, EKF_state)
