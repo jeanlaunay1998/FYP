@@ -25,6 +25,7 @@ class dynamics:
 
         # space debris constants
         self.m = 15.8
+        self.m0 = 15.8
         self.D = 0.58 # 3 meters of diameter debris
         self.A = np.pi*pow(self.D/2,2)
 
@@ -56,7 +57,8 @@ class dynamics:
         self.delta_t = 0.01
 
         self.observer = observer
-        self.wind_mod = 'off'
+        self.wind_mod = 'on'
+        self.mass_change = 'on'
 
 
     def temp(self, r):
@@ -156,13 +158,18 @@ class dynamics:
         self.beta.append(self.ballistic_coef(self.v, self.r))
 
         # introduce wind at h = 60Km of height
-        if LA.norm(self.r) - self.R < 60*(10**3):
-            if self.wind_mod == 'off':
-                self.wind_mod = 'on'
+        h = LA.norm(self.r) - self.R
+        if h < 60*(10**3):
+            if self.wind_mod == 'on':
+                self.wind_mod = 'off'
                 w_induced =  self.wind_introduction()
                 print('wind modification!!!!')
                 for i in range(3):
                     self.v[i] = self.v[i] + w_induced[i]
+
+        if self.mass_change == 'on':
+            if h <= 70*(10**3) and h >= 50*(10**3): self.mass_loss()
+
 
 
 
@@ -175,6 +182,13 @@ class dynamics:
         w_induced = np.matmul(LA.inv(self.observer.transform_M), v_SEU)
 
         return w_induced
+
+    def mass_loss(self):
+        a = (1/40)*self.m0
+        b = -(3/4)*self.m0
+        h = (LA.norm(self.r) - self.R)*(10**-3)
+        self.m = a*h + b
+
 
 
 
