@@ -33,9 +33,9 @@ class SateliteObserver:
             r = x
 
         if error == 'on':
-            sigma_d = np.random.normal(0, 50, size=1)
-            sigma_el = np.random.normal(0, 1e-3, size=1)
-            sigma_az = np.random.normal(0, 1e-3, size=1)
+            sigma_d = np.random.normal(0, 400, size=1) # 50
+            sigma_el = np.random.normal(0, 1e-2, size=1) # 1e-3
+            sigma_az = np.random.normal(0, 1e-2, size=1) # 1e-3
         elif error == 'off':
             sigma_d = [0]
             sigma_el = [0]
