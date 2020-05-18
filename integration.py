@@ -10,6 +10,8 @@ from system_dynamics import dynamics
 from observer import SateliteObserver
 from state_model import model
 from multi_shooting_MHE import multishooting
+from filterpy.kalman import MerweScaledSigmaPoints
+from filterpy.kalman import UnscentedKalmanFilter as UKF
 from MS_MHE_PE import MS_MHE_PE
 from memory import Memory
 
@@ -65,19 +67,24 @@ method = ['Newton LS','Newton LS','Newton LS']
 # model_pen =  [1e3, 1e3, 1e3, 1e1, 1e1, 1e1, 0.411]  # coefficients obtained from the estimation opt of MS_MHE_PE
 measurement_pen =  [1e6, 1e1, 1e1]  # [1e7, 1, 1] #  [1e6, 1e-1, 1e-1] # [0.06, 80, 80] [1, 1e2, 1e3]  #
 model_pen =  [1e-3,1e-3,1e-3, 5e-1,5e-1,5e-1, 1e-2] # [1e6, 1e6, 1e6, 1e1, 1e1, 1e1, 1e-1] #  [3, 3, 3, 1, 1, 1, 0.43] #[1, 1, 1, 1e1, 1e1, 1e1, 1e-1]
-arrival = [1, 10]
+arrival = [1, 1]
 for i in range(len(N)):
     opt.append(multishooting(m, d, o, N[i], measurement_lapse, measurement_pen, model_pen, Q, R, arrival[i], method[i]))
     # opt.append(MS_MHE_PE(m, d, o, N[i], measurement_lapse, measurement_pen, model_pen,[P0, Q, R], opt_method=method[i]))
 memory = Memory(o, N, len(N))
 
+# unscented kalman filter
+points = MerweScaledSigmaPoints(n=7, alpha=.1, beta=2., kappa=-1)
+ukf = UKF(dim_x=7, dim_z=3, fx=m.f, hx=o.h, dt=measurement_lapse, points=points)
+ukf.P = P0
+ukf.Q = Q
+ukf.R = R
 
 # extended kalman filter
 ekf = ExtendedKalmanFilter(dim_x=7, dim_z=3, dim_u=0)
 ekf.P = P0
 ekf.Q = Q
 ekf.R = R
-
 
 time = [0]
 y_real = []
@@ -109,8 +116,10 @@ while height > 5000 and t < t_lim:
             real_x = [[d.r, d.v]]
             real_beta = [d.beta[len(d.beta)-1]]
 
-            # initialisation of the Extended kalman filter
+
+            ukf.x = np.array([m.r[0], m.r[1], m.r[2], m.v[0], m.v[1], m.v[2], m.beta])
             ekf.x = np.array([m.r[0], m.r[1], m.r[2], m.v[0], m.v[1], m.v[2], m.beta])
+            UKF_state = [np.copy(ukf.x)]
             EKF_state = [np.copy(ekf.x)]
 
         else:
@@ -123,10 +132,12 @@ while height > 5000 and t < t_lim:
             real_x.append([d.r, d.v])
             real_beta.append(d.beta[len(d.beta) - 1])
 
+            ukf.predict()
             ekf.F = opt[0].dfdx(ekf.x)
             ekf.predict(fx=m.f)
-
-            ekf.update(z=y_real[len(y_real)-1], HJacobian=opt[0].dh, Hx=o.h)
+            ukf.update(y_real[len(y_real) - 1])
+            ekf.update(z=y_real[len(y_real) - 1], HJacobian=opt[0].dh, Hx=o.h)
+            UKF_state.append(np.copy(ukf.x))
             EKF_state.append(np.copy(ekf.x))
 
 
@@ -145,7 +156,7 @@ while height > 5000 and t < t_lim:
                 opt[i].estimation()
                 memory.save_data(t, opt[i].vars, o.h(m.r, 'off'), opt[i].cost(opt[i].vars), i)
 
-memory.make_plots(real_x, real_beta, y_real, m.Sk, EKF_state)
+memory.make_plots(real_x, real_beta, y_real, m.Sk, UKF_state, EKF_state)
 # fig, ax = plt.subplots(5,2)
 # for i in range(10):
 #     print([np.array(coeffs)[:,i]])
