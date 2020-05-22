@@ -3,7 +3,7 @@ import numpy as np
 from newton_method import newton_iter_selection
 from newton_method import BFGS
 from newton_method import gradient_search
-from filterpy.kalman import ExtendedKalmanFilter as EKF
+from extendedKF import ExtendedKalmanFilter as EKF
 from newton_method import newton_iter
 import sys
 from scipy.optimize import minimize
