@@ -33,7 +33,10 @@ class MS_MHE_PE:
         self.pen2 = 0  # 10e-5
 
         self.reg1 = np.identity(3)  # distance, azimuth, elevation
+        self.reg1 = LA.inv(np.array([[50, 0, 0], [0, (1e-2), 0], [0, 0, (1e-2)]])) # np.power(LA.inv(self.R),0.5) # np.zeros(3)  # distance, azimuth, elevation
         self.reg2 = np.identity(7)  # position, velocity and ballistic coeff
+        for i in range(7):
+            self.reg2[i,i] = self.model_pen[i]
 
         self.measurement_pen = pen1
         self.model_pen = pen2
@@ -67,43 +70,6 @@ class MS_MHE_PE:
             self.K_horizon.append(self.ekf.K)
         self.P_end = self.ekf.P
         self.x_prior = self.vars[0:7]
-
-        # it is assumed that the horizon is sufficiently small such that all measurements are of the same order at
-        # end and beginning of the horizon
-        # measurements reg
-
-        for i in range(3):
-            if np.abs(self.y[0, i]) < 1:
-                mult = 1
-                while mult * np.abs(self.y[0, i]) <= 1:
-                    mult = mult * 10
-                self.reg1[i,i] = self.measurement_pen[i] * mult
-            else:
-                mult = 1
-                while np.abs(self.y[0, i]) // mult >= 10:
-                    mult = mult * 10
-                self.reg1[i,i] = self.measurement_pen[i] / mult
-
-        # position and velocity reg
-        for i in range(2):
-            mult = 1
-            if np.abs(self.vars[i * 3]) < 1:
-                while mult * np.abs(self.vars[i * 3]) <= 1:
-                    mult = mult * 10
-                for j in range(3): self.reg2[i*3 + j, i*3 + j] =  self.model_pen[i*3+j] * mult
-            else:
-                while np.abs(self.vars[i * 3]) // mult >= 10:
-                    mult = mult * 10
-                for j in range(3): self.reg2[i*3 + j, i*3 + j] = self.model_pen[i*3+j] / mult
-
-        # ballistic coeff reg
-        mult = 1
-        while np.abs(self.vars[6]) // mult >= 10:
-            mult = mult * 10
-        self.reg2[6, 6] = self.model_pen[6] / mult
-
-        # self.reg1 = np.multiply(self.reg1, self.measurement_pen)
-        # self.reg2 = np.multiply(self.reg2, self.model_pen)
 
 
     def cost(self, var):
@@ -437,40 +403,6 @@ class MS_MHE_PE:
         self.ekf.update(z=last_y, HJacobian=self.dh, Hx=self.o.h)
         self.vars[self.N * 7:self.N * 7 + 7] = self.ekf.x # new value obtained at t = k+1  from x_k+1 = g(x_sol_k)
         self.x_prior = self.vars[0:7]
-
-        # it is assumed that the horizon is sufficiently small such that all measurements are of the same order at
-        # end and beginning of the horizon
-        # measurements reg
-
-        for i in range(3):
-            if np.abs(self.y[0, i]) < 1:
-                mult = 1
-                while mult * np.abs(self.y[0, i]) <= 1:
-                    mult = mult * 10
-                self.reg1[i,i] = self.measurement_pen[i] * mult
-            else:
-                mult = 1
-                while np.abs(self.y[0, i]) // mult >= 10:
-                    mult = mult * 10
-                self.reg1[i,i] = self.measurement_pen[i] / mult
-
-        # position and velocity reg
-        for i in range(2):
-            mult = 1
-            if np.abs(self.vars[i * 3]) < 1:
-                while mult * np.abs(self.vars[i * 3]) <= 1:
-                    mult = mult * 10
-                for j in range(3): self.reg2[i*3 + j, i*3 + j] =  self.model_pen[i*3+j] * mult
-            else:
-                while np.abs(self.vars[i * 3]) // mult >= 10:
-                    mult = mult * 10
-                for j in range(3): self.reg2[i*3 + j, i*3 + j] = self.model_pen[i*3+j] / mult
-
-        # ballistic coeff reg
-        mult = 1
-        while np.abs(self.vars[6]) // mult >= 10:
-            mult = mult * 10
-        self.reg2[6, 6] = self.model_pen[6] / mult
 
     def estimation(self):
         grad = self.gradient(self.vars)

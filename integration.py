@@ -28,8 +28,8 @@ from memory import Memory
 
 
 t_lim = 130
-N = [20]  # size of the horizon
-measurement_lapse = 0.5  # time lapse between every measurement
+N = [40]  # size of the horizon
+measurement_lapse = 0.1  # time lapse between every measurement
 
 t = 0.00
 step = int(0)  # number of measurements measurements made
@@ -37,7 +37,7 @@ delta = int(0)
 height = 80e3
 
 # Initialisation of true dynamics and approximation model
-o = SateliteObserver(22, 10) #40.24, 3.42)
+o = SateliteObserver(22, 10)  #40.24, 3.42)
 d = dynamics(height, 22, 0, 6000, -5, 60, o)
 initialbeta = d.beta[0] + np.random.normal(0, 0.01*d.beta[0], size=1)[0]
 m = model(d.r, d.v, initialbeta, measurement_lapse)

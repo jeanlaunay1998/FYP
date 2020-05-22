@@ -25,7 +25,7 @@ class multishooting:
         self.pen = 1  # penalty factor
         self.pen1 = 0  # factor to remove Lagrangians (note this is highly inefficient since there will be un-used variables)
 
-        self.reg1 = LA.inv(np.array([[50**2, 0, 0], [0, (1e-2), 0], [0, 0, (1e-2)]])) # np.power(LA.inv(self.R),0.5) # np.zeros(3)  # distance, azimuth, elevation
+        self.reg1 = LA.inv(np.array([[50, 0, 0], [0, (1e-2), 0], [0, 0, (1e-2)]])) # np.power(LA.inv(self.R),0.5) # np.zeros(3)  # distance, azimuth, elevation
         # self.reg2 = LA.inv(self.Q)  # np.zeros(7)  # position, velocity and ballistic coeff
 
         # self.reg1 = np.identity(3)
