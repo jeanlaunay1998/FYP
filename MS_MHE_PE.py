@@ -29,21 +29,17 @@ class MS_MHE_PE:
         self.P_horizon = []
         self.y = []  # list of true measurements across the horizon
         self.pen = 1  # penalty factor
-        self.pen1 = 0  # factor to remove Lagrangians (note this is highly inefficient since there will be un-used variables)
-        self.pen2 = 0  # 10e-5
 
         self.reg1 = np.identity(3)  # distance, azimuth, elevation
         self.reg1 = LA.inv(np.array([[50, 0, 0], [0, (1e-2), 0], [0, 0, (1e-2)]])) # np.power(LA.inv(self.R),0.5) # np.zeros(3)  # distance, azimuth, elevation
         self.reg2 = np.identity(7)  # position, velocity and ballistic coeff
-        for i in range(7):
-            self.reg2[i,i] = self.model_pen[i]
-
         self.measurement_pen = pen1
         self.model_pen = pen2
-
+        for i in range(7):
+            self.reg2[i,i] = self.model_pen[i]
         # VARIABLES FOR ARRIVAL COST
         self.x_prior = np.zeros(7)
-        self.mu = 1e1
+        self.mu = 0 # 1e1
 
 
     def estimator_initilisation(self, step, y_measured):
@@ -103,7 +99,6 @@ class MS_MHE_PE:
 
         for i in range(self.N + 1):
             J = J + 0.5 * LA.norm(np.multiply(self.reg1, self.y[i] - h_i[i]))**2
-
         for i in range(self.N):
             J = J + 0.5*self.pen*LA.norm(np.multiply(self.reg2, var[(i+1)*7:(i+2)*7] - g_i[i*7:(i+1)*7]))**2
         return J
@@ -244,9 +239,10 @@ class MS_MHE_PE:
         x_aprior = np.copy(self.ekf.x)
         P_return = np.copy(self.ekf.P)
         dg = np.matmul(np.identity(7) - np.matmul(self.ekf.K, self.dh(x_aprior)), df)
+        for i in range(6): dg[6, i] = 0
 
-        q = y_i - self.o.h(x_aprior, 'off')
         # checking method
+        q = y_i - self.o.h(x_aprior, 'off')
         for i in range(7):
             eps = 0.001
             # ------------#
@@ -257,8 +253,8 @@ class MS_MHE_PE:
             self.ekf.F = self.dfdx(self.ekf.x)
             self.ekf.predict(fx=self.m.f)
             self.ekf.update(z=y_i, HJacobian=self.dh, Hx=self.o.h)
-            # A = self.ekf.x
             K_plus = self.ekf.K
+            # A = self.ekf.x
             # ------------#
             plus_eps = np.copy(x)
             plus_eps[i] = plus_eps[i] - eps
@@ -268,11 +264,14 @@ class MS_MHE_PE:
             self.ekf.predict(fx=self.m.f)
             self.ekf.update(z=y_i, HJacobian=self.dh, Hx=self.o.h)
             # B = self.ekf.x
-            dK = (K_plus - self.ekf.K)/(2*eps)
             # derivative = (A-B)/(2*eps)
-            dg[:,i] = dg[:,i] + np.matmul(dK, q)
+            dK = (K_plus - self.ekf.K)/(2*eps)
+            new = dg[:,i] + np.matmul(dK, q)
+            for l in range(6): dg[l,i] = new[l]
 
             # print(i, ': max difference: ', 100*np.amax(np.abs(np.divide(derivative - dg[:, i], dg[:, i], out=np.zeros_like(dg[:, i]), where=dg[:, i] != 0))))
+            # print(dg[:,i])
+            # print(derivative)
             # print('-----')
         return [dg, x_aprior, P_return]
 
@@ -299,7 +298,7 @@ class MS_MHE_PE:
         for i in range(7):
             R2[i,:] = self.reg2[i,:]*self.reg2[i,i]
         R_mu = np.identity(7)
-        for i in range(7): R_mu[i, i] = (self.reg2[i, i] / self.model_pen[i]) ** 2
+        for i in range(7): R_mu[i, i] = self.reg2[i, i] #/ self.model_pen[i]) ** 2
 
         grad[0:7] = np.matmul(np.transpose(dh_i[0]), np.matmul(R1, self.o.h(var[0:3], 'off') - self.y[0])) \
                     - np.matmul(np.transpose(dg_i[0]), self.pen*np.matmul(R2, var[7:2*7] - g_i[0]))  + \
@@ -326,6 +325,8 @@ class MS_MHE_PE:
         #     derivative = (A-B)/(2*eps)
         #     print(l, ': diff (%): ', 100*np.abs(np.divide(grad[l]-derivative, grad[l], out=np.zeros_like(grad[l]), where=grad[l]!=0)))
         #     print('  analytical: ', grad[l], '; numerical: ', derivative)
+        #
+        # sys.exit()
 
         return grad
 
@@ -341,7 +342,7 @@ class MS_MHE_PE:
         for i in range(7):
             R2[i,:] = self.reg2[i,:]*self.reg2[i,i]
         R_mu = np.identity(7)
-        for i in range(7): R_mu[i, i] = (self.reg2[i, i] / self.model_pen[i]) ** 2
+        for i in range(7): R_mu[i, i] = self.reg2[i, i] #/ self.model_pen[i]) ** 2
 
         self.ekf.P = np.copy(self.P0)
         results = self.dgdx(x=var[0:7], P_i=self.ekf.P, y_i=self.y[1])
@@ -412,7 +413,7 @@ class MS_MHE_PE:
             self.vars = BFGS(self.vars, hess, self.cost, self.gradient, self.N)
         elif self.method == 'Newton LS':
             print(self.cost(self.vars))
-            for i in range(2):
+            for i in range(10):
                 self.vars = newton_iter_selection(self.vars, grad, hess, self.N, self.cost, 'on')
                 grad = self.gradient(self.vars)
                 hess = self.hessian(self.vars)

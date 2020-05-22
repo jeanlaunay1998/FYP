@@ -28,8 +28,8 @@ from memory import Memory
 
 
 t_lim = 130
-N = [40]  # size of the horizon
-measurement_lapse = 0.1  # time lapse between every measurement
+N = [20]  # size of the horizon
+measurement_lapse = 0.5  # time lapse between every measurement
 
 t = 0.00
 step = int(0)  # number of measurements measurements made
@@ -62,15 +62,15 @@ Q[6,6] = 100
 
 # Initialisation of estimators
 opt = []
-method = ['Newton LS','Newton LS','Newton LS']
+method = ['Gradient','Newton LS','Newton LS']
 # measurement_pen =  [0.06, 75, 75] # coefficients obtained from the estimation opt of MS_MHE_PE
 # model_pen =  [1e3, 1e3, 1e3, 1e1, 1e1, 1e1, 0.411]  # coefficients obtained from the estimation opt of MS_MHE_PE
 measurement_pen =  [1e6, 1e1, 1e1]  # [1e7, 1, 1] #  [1e6, 1e-1, 1e-1] # [0.06, 80, 80] [1, 1e2, 1e3]  #
 model_pen =  [1e-3,1e-3,1e-3, 5e-1,5e-1,5e-1, 1e-2] # [1e6, 1e6, 1e6, 1e1, 1e1, 1e1, 1e-1] #  [3, 3, 3, 1, 1, 1, 0.43] #[1, 1, 1, 1e1, 1e1, 1e1, 1e-1]
 arrival = [1, 1]
 for i in range(len(N)):
-    opt.append(multishooting(m, d, o, N[i], measurement_lapse, measurement_pen, model_pen, Q, R, arrival[i], method[i]))
-    # opt.append(MS_MHE_PE(m, d, o, N[i], measurement_lapse, measurement_pen, model_pen,[P0, Q, R], opt_method=method[i]))
+    # opt.append(multishooting(m, d, o, N[i], measurement_lapse, measurement_pen, model_pen, Q, R, arrival[i], method[i]))
+    opt.append(MS_MHE_PE(m, d, o, N[i], measurement_lapse, measurement_pen, model_pen, [P0, Q, R], opt_method=method[i]))
 memory = Memory(o, N, len(N))
 
 # unscented kalman filter
@@ -145,14 +145,13 @@ while height > 5000 and t < t_lim:
             if step >= opt[i].N+1: # MHE is entered only when there exists sufficient measurements over the horizon
                 if step==opt[i].N+1:
                     opt[i].estimator_initilisation(step, y_real)
-                    # asdfg = 0
+                    opt[i].vars = opt[i].vars * 1.01
                 else:
                     opt[i].slide_window(y_real[step-1])
-                    # asdfg = asdfg +1
 
-                # coeffs.append(np.copy(opt[i].tuning_MHE(real_x, real_beta, step)))
-                # measurementssss = np.array([coeff1[asdfg],coeff2[asdfg],coeff3[asdfg]])
-                # modelss = np.array([coeff4[asdfg], coeff4[asdfg],coeff4[asdfg], coeff7[asdfg], coeff7[asdfg], coeff7[asdfg], coeff10[asdfg]])
+                # for j in range(len(opt[i].vars)):
+                #     opt[i].vars[j] = opt[i].vars[j]*np.random.normal(0,1,size=1)[0]
+
                 opt[i].estimation()
                 memory.save_data(t, opt[i].vars, o.h(m.r, 'off'), opt[i].cost(opt[i].vars), i)
 

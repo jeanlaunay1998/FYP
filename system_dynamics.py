@@ -57,7 +57,7 @@ class dynamics:
         self.delta_t = 0.01
 
         self.observer = observer
-        self.wind_mod = 'on'
+        self.wind_mod = 'off'
         self.mass_change = 'on'
 
 

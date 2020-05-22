@@ -20,8 +20,8 @@ class Memory:
     def save_data(self, time, vars, y_model, cost, number):
         ys = []
         xs = []
-        # for i in range(0,self.N[number]+1):
-        for i in range(0,2*self.N[number]+1,2):
+        for i in range(0,self.N[number]+1):
+        # for i in range(0,2*self.N[number]+1,2):
             ys.append(self.o.h(vars[i*7:i*7+3], 'off'))
             xs.append(vars[i*7:(i+1)*7])
 
@@ -45,7 +45,6 @@ class Memory:
                 EKF_states[i, 3:6] = np.matmul(self.o.transform_M, EKF_states[i, 3:6])
 
         for i in range(self.size):
-
             self.states[i] = np.array(self.states[i])
             if transform=='on':
                 for j in range(len(self.states[i])):
