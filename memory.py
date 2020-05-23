@@ -20,14 +20,26 @@ class Memory:
     def save_data(self, time, vars, y_model, cost, number):
         ys = []
         xs = []
-        for i in range(0,self.N[number]+1):
-        # for i in range(0,2*self.N[number]+1,2):
-            ys.append(self.o.h(vars[i*7:i*7+3], 'off'))
-            xs.append(vars[i*7:(i+1)*7])
 
-        self.states[number].append(np.copy(xs))
-        self.y_estimates[number].append(ys)
-        self.cost[number].append(cost)
+        if len(vars) == 7:
+            for i in range(self.N[number]):
+                ys.append([0, 0, 0])
+                xs.append([0, 0, 0, 0, 0, 0, 0])
+            ys.append(self.o.h(vars, 'off'))
+            xs.append(vars)
+            self.y_estimates[number].append(ys)
+            self.states[number].append(xs)
+            self.cost[number].append(cost)
+        else:
+
+            for i in range(0,self.N[number]+1):
+            # for i in range(0,2*self.N[number]+1,2):
+                ys.append(self.o.h(vars[i*7:i*7+3], 'off'))
+                xs.append(vars[i*7:(i+1)*7])
+
+            self.states[number].append(np.copy(xs))
+            self.y_estimates[number].append(ys)
+            self.cost[number].append(cost)
         if number == 0:
             self.y_model.append(y_model)
             self.t.append(time)

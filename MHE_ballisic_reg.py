@@ -73,14 +73,12 @@ class MHE_regularisation:
         hess = self.hessian(self.vars)
 
         if self.method == 'BFGS':
+            print(self.cost_function(self.vars))
             self.vars = BFGS(self.vars, hess, self.cost_function, self.gradient, self.N)
+            print(self.cost_function(self.vars))
         elif self.method == 'Newton LS':
             print(self.cost_function(self.vars))
-            for i in range(10):
-                self.vars = newton_iter_selection(self.vars, grad, hess, self.N, self.cost_function, 'on')
-                grad = self.gradient(self.vars)
-                hess = self.hessian(self.vars)
-                # self.vars = newton_iter(self.vars, grad, hess)
+            self.vars = newton_iter_selection(self.vars, self.gradient, self.hessian, self.N, self.cost_function, 'on')
             print(self.cost_function(self.vars))
         elif self.method == 'Newton':
             for i in range(15):

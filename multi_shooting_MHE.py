@@ -384,14 +384,15 @@ class multishooting:
             self.vars = BFGS(self.vars, hess, self.cost, self.gradient, self.N)
         elif self.method == 'Newton LS':
             print(self.cost(self.vars))
-            for i in range(10):
-                self.vars = newton_iter_selection(self.vars, grad, hess, self.N, self.cost, 'on')
-                grad = self.gradient(self.vars)
-                hess = self.hessian(self.vars)
-                # self.vars = newton_iter(self.vars, grad, hess)
+            x_zero = np.zeros((self.N+1)*7)
+            for i in range(0, 2*self.N+1, 2):
+                x_zero[(i//2)*7:(i//2+1)*7] = self.vars[i*7:(i+1)*7]
+            x_zero = newton_iter_selection(x_zero, self.gradient, self.hessian, self.N, self.cost, 'on')
+            for i in range(0, 2 * self.N + 1, 2):
+                self.vars[i * 7:(i + 1) * 7] = x_zero[(i // 2) * 7:(i // 2 + 1) * 7]
             print(self.cost(self.vars))
         elif self.method == 'Newton':
-            for i in range(150):
+            for i in range(15):
                 self.vars = newton_iter_selection(self.vars, grad, hess, self.N, self.cost, 'off')
                 grad = self.gradient(self.vars)
                 hess = self.hessian(self.vars)
