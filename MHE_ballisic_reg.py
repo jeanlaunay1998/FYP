@@ -1,94 +1,101 @@
 import numpy as np
 from numpy import linalg as LA
 from scipy.optimize import minimize
+from newton_method import newton_iter_selection
+from newton_method import BFGS
+from newton_method import gradient_search
 import sys
 
 
 class MHE_regularisation:
-    def __init__(self, model, observer, measurement_lapse):
+    def __init__(self, model, observer, horizon_length, measurement_lapse, model_pen, opt_method = 'Gradient'):
         self.m = model  # copy direction of model to access all function of the class
         self.o = observer  # copy direction of observer to access all function of the class
 
         self.alpha = 0.1  # random size of the step (to be changed by Hessian of the matrix)
-        self.N = 20  # number of points in the horizon
+        self.N = horizon_length  # number of points in the horizon
         self.J = 0  # matrix to store cost function
         self.inter_steps = int(measurement_lapse/self.m.delta_t)
 
-        self.x_apriori = []
+        self.x_apriori = np.zeros(7)
+        self.vars = np.zeros(7)
         self.x_init = np.zeros(7)
         self.y = []
         self.beta = self.m.beta
         self.beta_apriori = self.m.beta
 
         self.x_solution = [0, 0, 0]
-        self.mu1 = 18.074661
-        self.mu2 = 5
-        self.R = [1000, 1000, 1000]
+        self.mu1 = 1
+        self.mu2 = model_pen[6]
         self.matrixR = []
 
+        self.reg1 = LA.inv(np.array([[50, 0, 0], [0, (1e-2), 0], [0, 0, (1e-2)]]))
+        self.R_mu = np.identity(7)
+        for i in range(7): self.R_mu[i, i] = model_pen[i]
         # -------------------------------------------------- #
         self.initial_coefs =[1,1,1,1,1]
         self.real_x = []
         self.real_beta = []
         # -------------------------------------------------- #
+        self.method = opt_method
 
 
-    def initialisation(self, y_measured, step):
+    def estimator_initilisation(self, step, y_measured):
         if step == self.N+1:
             self.y = np.array(y_measured)[step - self.N - 1:step, :]
-            self.x_apriori = np.array(self.m.Sk[len(self.m.Sk)-1-self.N*self.inter_steps])  # there is N-1 intervals over the horizon
-            self.x_init[0:3] = np.copy(self.m.Sk[len(self.m.Sk)-1-self.N*self.inter_steps][0])
-            self.x_init[3:6] = np.copy(self.m.Sk[len(self.m.Sk)-1-self.N*self.inter_steps][1])
-            self.x_init[6] = np.copy(self.m.beta)
-
+            self.vars[0:3] = np.copy(self.m.Sk[len(self.m.Sk)-1-self.N*self.inter_steps][0])
+            self.vars[3:6] = np.copy(self.m.Sk[len(self.m.Sk)-1-self.N*self.inter_steps][1])
+            self.vars[6] = self.m.beta
+            self.x_apriori = self.vars
             self.beta = self.m.beta  # Initial guess from model
 
-        if step > self.N+1:
-            self.y = np.array(y_measured)[step - self.N -1:step, :]
-            self.beta_apriori = self.x_solution[2]  # update new initial guess of beta
-            self.x_apriori[0], self.x_apriori[1], a, self.beta = self.m.f(self.x_solution[0], self.x_solution[1], self.beta, 'off')
-            self.x_init[0:3] = self.x_apriori[0]
-            self.x_init[3:6] = self.x_apriori[1]
-            self.x_init[6] = self.x_solution[2]
+
+    def slide_window(self, last_y):
+        # slide horizon of measurements
+        self.y[0:self.N] = self.y[1:self.N + 1]
+        self.y[self.N] = last_y
+        self.beta = self.vars[6]
+        self.vars = self.m.f(self.vars)
+        self.x_apriori = self.vars
 
 
     def cost_function(self, x):
-
-        # built in optimisation function delivers the input in shape (6,1) when shape (2,3) is required
-        if len(x) != len(self.x_apriori):
-            a = np.zeros((2, 3))
-            for i in range(len(x)-1):
-                a[int(i/3), i%3] = x[i]
-            beta_i = x[6]
-
-        x_iplus1 = np.copy(a)
-        x_inverse = 1/self.x_apriori
-        J = self.mu1*(LA.norm((x_iplus1 - self.x_apriori)*x_inverse)**2) + self.mu2*(self.beta_apriori-beta_i)**2
-
+        x_iplus1 = np.copy(x)
+        J = 0.5*self.mu1*(LA.norm(np.matmul(self.R_mu, x_iplus1 - self.x_apriori))**2)
         for i in range(0, self.N+1):
-            self.matrixR = np.array([[self.R[0]/self.y[i, 0], 0, 0], [0, self.R[1]/self.y[i, 1], 0], [0, 0, self.R[2]/self.y[i,2]]])
-            # self.matrixR = [[1,0,0],[0,1,0],[0,0,1]]
-            J = J + pow(LA.norm(np.matmul(self.matrixR, (self.y[i] - self.o.h(x_iplus1[0], 'off')))), 2)
-
-            # note that since the model perform steps of 0.01 secs the step update needs to be perform 1/0.01 times to
-            # obtain the value at same measurement time
+            J = J + 0.5*pow(LA.norm(np.matmul(self.reg1, (self.y[i] - self.o.h(x_iplus1, 'off')))), 2)
             for j in range(self.inter_steps):
-                x_iplus1[0], x_iplus1[1], a, beta_i = self.m.f(x_iplus1[0], x_iplus1[1], beta_i, 'off')
+                x_iplus1 = self.m.f(x_iplus1, 'off')
         return J
 
+    def estimation(self):
+        grad = self.gradient(self.vars)
+        hess = self.hessian(self.vars)
 
-    def search(self, method='heuristic'):
-        if method=='heuristic':
-            res = minimize(self.cost_function, self.x_init, method='Nelder-Mead', tol=1e-3)
-        elif method=='gradient':
-            res = minimize(fun=self.cost_function, x0=self.x_init, method='BFGS', jac=self.gradient, options={'gtol': 1e-2,  'maxiter':100})
+        if self.method == 'BFGS':
+            self.vars = BFGS(self.vars, hess, self.cost_function, self.gradient, self.N)
+        elif self.method == 'Newton LS':
+            print(self.cost_function(self.vars))
+            for i in range(10):
+                self.vars = newton_iter_selection(self.vars, grad, hess, self.N, self.cost_function, 'on')
+                grad = self.gradient(self.vars)
+                hess = self.hessian(self.vars)
+                # self.vars = newton_iter(self.vars, grad, hess)
+            print(self.cost_function(self.vars))
+        elif self.method == 'Newton':
+            for i in range(15):
+                self.vars = newton_iter_selection(self.vars, grad, hess, self.N, self.cost_function, 'off')
+                grad = self.gradient(self.vars)
+                hess = self.hessian(self.vars)
+                # self.vars = newton_iter(self.vars, grad, hess)
+        elif self.method == 'Gradient':
+            self.vars = gradient_search(self.vars, self.cost_function, self.gradient)
+        elif self.method == 'Built-in optimizer':
+
+            result = minimize(fun=self.cost_function, x0=self.vars, method='trust-ncg', jac=self.gradient, hess=self.hessian, options={'maxiter': 50})
+            self.vars = result.x
         else:
-            print('Error: Optimization method not recognized')
-            sys.exit()
-        print(['MHE 2:', res.success, LA.norm(res.jac)])
-        self.x_solution[0] = [res.x[0], res.x[1], res.x[2]]
-        self.x_solution[1] = [res.x[3], res.x[4], res.x[5]]
-        self.x_solution[2] = res.x[6]
+            print('Optimization method ' + self.method + ' non recognize')
 
 
     def density_constants(self, height):
@@ -145,10 +152,11 @@ class MHE_regularisation:
         return da_dbeta
 
 
-    def df(self, x, beta):
+    def dfdx(self, x):
         # x: point at which the derivative is evaluated
-        r = x[0]
-        v = x[1]
+        r = x[0:3]
+        v = x[3:6]
+        beta = x[6]
 
         # compute acceleration derivatives
         dadr = self.dacc_dr(r, v, beta)
@@ -187,7 +195,7 @@ class MHE_regularisation:
             for j in range(3):
                 dfdx[i+3, j+3] = self.m.delta_t*dadv[i, j]
         for i in range(3):
-            dfdx[i+3, i + 3] = dfdx[i+3, i + 3]
+            dfdx[i+3, i + 3] = 1 + dfdx[i+3, i + 3]
 
         # d(v_k+1)/dbeta
         for i in range(3):
@@ -198,7 +206,7 @@ class MHE_regularisation:
 
     def dh(self, x):
         # x: point at which the derivative is evaluated
-        r = self.o.position_transform(x[0])
+        r = self.o.position_transform(x[0:3])
 
         norm_r = LA.norm(r)
         dhdx = np.zeros((3, 7))
@@ -215,63 +223,122 @@ class MHE_regularisation:
 
 
     def gradient(self, x):
-        grad = np.zeros(7)
-
-        if len(x) != len(self.x_apriori):
-            x_i = np.zeros((2,3))
-            for i in range(6): x_i[int(i / 3), i % 3] = x[i]
-        beta_i = x[6]
-
-        x_inverse = (1/x_i)*(1/x_i)
-        a = self.mu1*x_inverse*np.array(x_i - self.x_apriori)
-
-        for i in range(6): grad[i] = a[int(i/3), i%3]
-        grad[6] = self.mu2*(beta_i - self.beta_apriori)
+        R_mu = np.power(self.R_mu, 2)
+        x_i = np.copy(x)
+        grad = np.matmul(R_mu, x_i - self.x_apriori)  # arrival cost derivative
 
         dfdx_i = []
         dhdx_i = []
         h_i = []
 
         for i in range(self.N):
-            dfdx_i.append(self.df(x_i, beta_i))
+            dfdx_i.append(self.dfdx(x_i))
             dhdx_i.append(self.dh(x_i))
-            h_i.append(self.o.h(x_i[0], 'off'))
-            x_i[0], x_i[1], a_i, beta_i = self.m.f(x_i[0], x_i[1], beta_i, 'off')
+            h_i.append(self.o.h(x_i, 'off'))
+            x_i = self.m.f(x_i, 'off')
 
         dhdx_i.append(self.dh(x_i))
-        h_i.append(self.o.h(x_i[0], 'off'))
+        h_i.append(self.o.h(x_i, 'off'))
 
         dhdx_i = np.array(dhdx_i)
         dfdx_i =np.array((dfdx_i))
         h_i = np.array(h_i)
+        R1 = np.zeros((3, 3))
+        for i in range(3):
+            R1[i,:] = self.reg1[i,:]*self.reg1[i,i]
 
-        self.matrixR = np.array([[self.R[0]/self.y[0, 0], 0, 0], [0, self.R[1]/self.y[0, 1], 0], [0, 0, self.R[2]/self.y[0,2]]])
-        # self.matrixR = [[1, 0, 0], [0, 1, 0], [0, 0, 1]]
-        grad = grad + np.matmul(np.transpose(dhdx_i[0]), np.matmul(np.matmul(self.matrixR,self.matrixR), h_i[0]-self.y[0]))
-
+        grad = grad + np.matmul(np.transpose(dhdx_i[0]), np.matmul(R1, h_i[0]-self.y[0]))
         for i in range(1, self.N+1):
             dfdx_mult = dfdx_i[0]
-
             # apparently the derivative is better approximated this way (mathematically it does not make sens)
             for j in range(1, i):
                 dfdx_mult = np.matmul(dfdx_i[j], dfdx_mult)
 
             A = np.matmul(dhdx_i[i], dfdx_mult) # dh(x_i)/dx_k-
-            self.matrixR = np.array([[self.R[0]/self.y[i, 0], 0, 0], [0, self.R[1]/self.y[i, 1], 0], [0, 0, self.R[2]/self.y[i,2]]])
-            R_square = np.matmul(self.matrixR,self.matrixR)
-            B = np.matmul(R_square, h_i[i] - self.y[i])
+            B = np.matmul(R1, h_i[i] - self.y[i])
             C = np.matmul(np.transpose(A), B)
             grad = grad + C
-        grad = (2*grad)
 
+        # checking method
+        # for l in range(len(x)):
+        #     if (l//7)%2 == 0:
+        #         eps = 0.1
+        #         plus_eps = np.copy(x)
+        #         plus_eps[l] = plus_eps[l]+eps
+        #         minus_eps = np.copy(x)
+        #         minus_eps[l] = minus_eps[l] - eps
+        #
+        #         A = self.cost_function(plus_eps)
+        #         print('--')
+        #         B = self.cost_function(minus_eps)
+        #         # print(A)
+        #         # print(B)
+        #         derivative = (A-B)/(2*eps)
+        #         print(l, ': diff (%): ', 100*np.abs(np.divide(grad[l]-derivative, grad[l], out=np.zeros_like(grad[l]), where=grad[l]!=0)))
+        #         # print(l, ': diff (%): ', 100*np.abs(np.divide(grad[l]-derivative, derivative, out=np.zeros_like(derivative), where=derivative!=0)))
+        #         print('  analytical: ', grad[l], '; numerical: ', derivative)
+        # sys.exit()
         return grad
+
+    def hessian(self, x):
+        R_mu = np.power(self.R_mu, 2)
+        H = self.mu1*R_mu
+        x_i = np.copy(x)
+
+        dfdx_i = []
+        dhdx_i = []
+        h_i = []
+        for i in range(self.N):
+            dfdx_i.append(self.dfdx(x_i))
+            dhdx_i.append(self.dh(x_i))
+            h_i.append(self.o.h(x_i, 'off'))
+            x_i = self.m.f(x_i, 'off')
+        dhdx_i.append(self.dh(x_i))
+        h_i.append(self.o.h(x_i, 'off'))
+
+        dhdx_i = np.array(dhdx_i)
+        dfdx_i = np.array((dfdx_i))
+        h_i = np.array(h_i)
+        R1 = np.zeros((3, 3))
+        for i in range(3):
+            R1[i, :] = self.reg1[i, :] * self.reg1[i, i]
+        H = H + np.matmul(np.transpose(dhdx_i[0]), np.matmul(R1, dhdx_i[0]))
+
+        for i in range(1, self.N + 1):
+            dfdx_mult = dfdx_i[0]
+            # apparently the derivative is better approximated this way (mathematically it does not make sens)
+            for j in range(1, i):
+                dfdx_mult = np.matmul(dfdx_i[j], dfdx_mult)
+
+            A = np.matmul(dhdx_i[i], dfdx_mult)  # dh(x_i)/dx_k-
+            B = np.matmul(R1, A)
+            C = np.matmul(np.transpose(A), B)
+            H = H + C
+
+        # checking method
+        # for l in range(len(x)):
+        #     if (l // 7) % 2 == 0:
+        #         eps = 0.1
+        #
+        #         plus_eps = np.copy(x)
+        #         plus_eps[l] = plus_eps[l]+eps
+        #         minus_eps = np.copy(x)
+        #         minus_eps[l] = minus_eps[l] - eps
+        #
+        #         A = self.gradient(plus_eps)
+        #         B = self.gradient(minus_eps)
+        #         derivative = (A-B)/(2*eps)
+        #         # H[l, :] = derivative
+        #         print(l, ': max diff (%): ', 100*np.amax(np.abs(np.divide(H[l,: ] - derivative, H[l,: ], out=np.zeros_like(H[l,: ]), where=H[l,: ]!=0))))
+        #         print('numerical', derivative)
+        #         print('analytical', H[l, :])
+        #         print('----')
+        # sys.exit()
+        return H
+
 
 
     def initialisation2(self, y_measured, real_x, real_beta, step):
-
-        # self.x_init[0:3] = real_x[step - self.N - 1][0]
-        # self.x_init[3:6] = real_x[step - self.N - 1][1]
-        # self.x_init[6] = real_beta[step - self.N - 1]
         self.real_x = real_x[step - self.N - 1]
         self.real_beta = real_beta[step - self.N - 2]
         self.initial_coefs = [1, 1, 1, 1, 1]

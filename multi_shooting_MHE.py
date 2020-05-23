@@ -25,18 +25,17 @@ class multishooting:
         self.pen = 1  # penalty factor
         self.pen1 = 0  # factor to remove Lagrangians (note this is highly inefficient since there will be un-used variables)
 
-        self.reg1 = LA.inv(np.array([[50, 0, 0], [0, (1e-2), 0], [0, 0, (1e-2)]])) # np.power(LA.inv(self.R),0.5) # np.zeros(3)  # distance, azimuth, elevation
-        # self.reg2 = LA.inv(self.Q)  # np.zeros(7)  # position, velocity and ballistic coeff
-
-        # self.reg1 = np.identity(3)
-        self.reg2 = np.identity(7)*1e-5
-        # self.reg2[6,6] = 0.1*self.reg2[6,6]
-        #
         self.measurement_pen = pen1
         self.model_pen = pen2
-        #
+
+        self.reg1 = LA.inv(np.array([[50, 0, 0], [0, (1e-2), 0], [0, 0, (1e-2)]])) # np.power(LA.inv(self.R),0.5) # np.zeros(3)  # distance, azimuth, elevation
+        # self.reg1 = np.identity(3)
         # for i in range(3):
         #     self.reg1[i,i] = self.measurement_pen[i]
+
+        self.reg2 = np.identity(7)
+        # self.reg2 = LA.inv(self.Q)  # np.zeros(7)  # position, velocity and ballistic coeff
+        # self.reg2[6,6] = 0.1*self.reg2[6,6]
         for i in range(7):
             self.reg2[i,i] = self.model_pen[i]
 
@@ -55,46 +54,6 @@ class multishooting:
                 self.vars[i * 7 + j] = np.copy(self.m.Sk[len(self.m.Sk) - (1 + self.N) * self.inter_steps + i//2][1][j-3])
             self.vars[i*7 + 6] = self.m.beta
         self.x_prior = self.vars[0:7]
-
-        # self.reg1 = np.ones(3)
-        # self.reg2 = np.ones(7)
-        #
-        # self.reg1 = np.multiply(self.reg1, self.measurement_pen)
-        # self.reg2 = np.multiply(self.reg2, self.model_pen)
-        # it is assumed that the horizon is sufficiently small such that all measurements are of the same order at
-        # end and beginning of the horizon
-        # measurements reg
-
-        # for i in range(3):
-        #     if np.abs(self.y[0, i]) < 1:
-        #         mult = 1
-        #         while mult * np.abs(self.y[0, i]) <= 1:
-        #             mult = mult * 10
-        #         self.reg1[i, i] = self.measurement_pen[i] * mult
-        #     else:
-        #         mult = 1
-        #         while np.abs(self.y[0, i]) // mult >= 10:
-        #             mult = mult * 10
-        #         self.reg1[i, i] = self.measurement_pen[i] / mult
-        #
-        # # position and velocity reg
-        # for i in range(2):
-        #     mult = 1
-        #     if np.abs(self.vars[i * 3]) < 1:
-        #         while mult * np.abs(self.vars[i * 3]) <= 1:
-        #             mult = mult * 10
-        #         for j in range(3): self.reg2[i * 3 + j, i * 3 + j] = self.model_pen[i * 3 + j] * mult
-        #     else:
-        #         while np.abs(self.vars[i * 3]) // mult >= 10:
-        #             mult = mult * 10
-        #         for j in range(3): self.reg2[i * 3 + j, i * 3 + j] = self.model_pen[i * 3 + j] / mult
-        #
-        # # ballistic coeff reg
-        # mult = 1
-        # while np.abs(self.vars[6]) // mult >= 10:
-        #     mult = mult * 10
-        # self.reg2[6, 6] = self.model_pen[6] / mult
-
 
 
     def cost(self, x):
@@ -417,45 +376,7 @@ class multishooting:
 
         self.x_prior = self.vars[0:7]
 
-        # it is assumed that the horizon is sufficiently small such that all measurements are of the same order at
-        # end and beginning of the horizon
-        # measurements reg
-
-        # for i in range(3):
-        #     if np.abs(self.y[0, i]) < 1:
-        #         mult = 1
-        #         while mult * np.abs(self.y[0, i]) <= 1:
-        #             mult = mult * 10
-        #         self.reg1[i,i] = self.measurement_pen[i] * mult
-        #     else:
-        #         mult = 1
-        #         while np.abs(self.y[0, i]) // mult >= 10:
-        #             mult = mult * 10
-        #         self.reg1[i,i] = self.measurement_pen[i] / mult
-        #
-        # # position and velocity reg
-        # for i in range(2):
-        #     mult = 1
-        #     if np.abs(self.vars[i * 3]) < 1:
-        #         while mult * np.abs(self.vars[i * 3]) <= 1:
-        #             mult = mult * 10
-        #         for j in range(3): self.reg2[i*3 + j, i*3 + j] =  self.model_pen[i*3+j] * mult
-        #     else:
-        #         while np.abs(self.vars[i * 3]) // mult >= 10:
-        #             mult = mult * 10
-        #         for j in range(3): self.reg2[i*3 + j, i*3 + j] = self.model_pen[i*3+j] / mult
-        #
-        # # ballistic coeff reg
-        # mult = 1
-        # while np.abs(self.vars[6]) // mult >= 10:
-        #     mult = mult * 10
-        # self.reg2[6, 6] = self.model_pen[6] / mult
-
-
     def estimation(self, mea_pen=[], mod_pen=[]):
-        # self.reg1 = mea_pen
-        # self.reg2 = mod_pen
-
         grad = self.gradient(self.vars)
         hess = self.hessian(self.vars)
 
@@ -488,6 +409,10 @@ class multishooting:
                 self.vars[i * 7:(i + 1) * 7] = result.x[(i // 2) * 7:(i // 2 + 1) * 7]
         else:
             print('Optimization method ' + self.method + ' non recognize')
+
+
+
+
 
     def tuning_MHE(self, real_x, real_beta, step):
         self.real_x = np.ones((1+2*self.N)*7)
@@ -541,36 +466,75 @@ class multishooting:
         return J
 
 
-# # it is assumed that the horizon is sufficiently small such that all measurements are of the same order at
-# # end and beginning of the horizon
-# # measurements reg
-#
-# for i in range(3):
-#     if np.abs(self.y[0, i]) < 1:
-#         mult = 1
-#         while mult * np.abs(self.y[0, i]) <= 1:
-#             mult = mult * 10
-#         self.reg1[i] = 1 * mult
-#     else:
-#         mult = 1
-#         while np.abs(self.y[0, i]) // mult >= 10:
-#             mult = mult * 10
-#         self.reg1[i] = 1 / mult
-#
-# # position and velocity reg
-# for i in range(2):
-#     mult = 1
-#     if np.abs(self.vars[i * 3]) < 1:
-#         while mult * np.abs(self.vars[i * 3]) <= 1:
-#             mult = mult * 10
-#         self.reg2[i * 3:i * 3 + 3] = 1 * mult
-#     else:
-#         while np.abs(self.vars[i * 3]) // mult >= 10:
-#             mult = mult * 10
-#         self.reg2[i * 3:i * 3 + 3] = 1 / mult
-#
-# # ballistic coeff reg
-# mult = 1
-# while np.abs(self.vars[6]) // mult >= 10:
-#     mult = mult * 10
-# self.reg2[6] = 1 / mult
+# self.reg1 = np.ones(3)
+        # self.reg2 = np.ones(7)
+        #
+        # self.reg1 = np.multiply(self.reg1, self.measurement_pen)
+        # self.reg2 = np.multiply(self.reg2, self.model_pen)
+        # it is assumed that the horizon is sufficiently small such that all measurements are of the same order at
+        # end and beginning of the horizon
+        # measurements reg
+
+        # for i in range(3):
+        #     if np.abs(self.y[0, i]) < 1:
+        #         mult = 1
+        #         while mult * np.abs(self.y[0, i]) <= 1:
+        #             mult = mult * 10
+        #         self.reg1[i, i] = self.measurement_pen[i] * mult
+        #     else:
+        #         mult = 1
+        #         while np.abs(self.y[0, i]) // mult >= 10:
+        #             mult = mult * 10
+        #         self.reg1[i, i] = self.measurement_pen[i] / mult
+        #
+        # # position and velocity reg
+        # for i in range(2):
+        #     mult = 1
+        #     if np.abs(self.vars[i * 3]) < 1:
+        #         while mult * np.abs(self.vars[i * 3]) <= 1:
+        #             mult = mult * 10
+        #         for j in range(3): self.reg2[i * 3 + j, i * 3 + j] = self.model_pen[i * 3 + j] * mult
+        #     else:
+        #         while np.abs(self.vars[i * 3]) // mult >= 10:
+        #             mult = mult * 10
+        #         for j in range(3): self.reg2[i * 3 + j, i * 3 + j] = self.model_pen[i * 3 + j] / mult
+        #
+        # # ballistic coeff reg
+        # mult = 1
+        # while np.abs(self.vars[6]) // mult >= 10:
+        #     mult = mult * 10
+        # self.reg2[6, 6] = self.model_pen[6] / mult
+
+ # it is assumed that the horizon is sufficiently small such that all measurements are of the same order at
+        # end and beginning of the horizon
+        # measurements reg
+
+        # for i in range(3):
+        #     if np.abs(self.y[0, i]) < 1:
+        #         mult = 1
+        #         while mult * np.abs(self.y[0, i]) <= 1:
+        #             mult = mult * 10
+        #         self.reg1[i,i] = self.measurement_pen[i] * mult
+        #     else:
+        #         mult = 1
+        #         while np.abs(self.y[0, i]) // mult >= 10:
+        #             mult = mult * 10
+        #         self.reg1[i,i] = self.measurement_pen[i] / mult
+        #
+        # # position and velocity reg
+        # for i in range(2):
+        #     mult = 1
+        #     if np.abs(self.vars[i * 3]) < 1:
+        #         while mult * np.abs(self.vars[i * 3]) <= 1:
+        #             mult = mult * 10
+        #         for j in range(3): self.reg2[i*3 + j, i*3 + j] =  self.model_pen[i*3+j] * mult
+        #     else:
+        #         while np.abs(self.vars[i * 3]) // mult >= 10:
+        #             mult = mult * 10
+        #         for j in range(3): self.reg2[i*3 + j, i*3 + j] = self.model_pen[i*3+j] / mult
+        #
+        # # ballistic coeff reg
+        # mult = 1
+        # while np.abs(self.vars[6]) // mult >= 10:
+        #     mult = mult * 10
+        # self.reg2[6, 6] = self.model_pen[6] / mult

@@ -18,7 +18,7 @@ def newton_iter(x0, grad, hess):
     output = x0 - np.matmul(hess_inv, grad)
     return output
 
-def newton_iter_selection(x0, grad, hess, N, cost_fun, linesearch='off'):
+def newton_iter_selection(x0, grad_fun, hess_fun, N, cost_fun, linesearch='off'):
 
     if len(x0) != (N+1)*7:
         selection = 'on'
