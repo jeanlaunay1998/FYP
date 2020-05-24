@@ -334,6 +334,12 @@ class MHE_regularisation:
         # sys.exit()
         return H
 
+    def last_state(self):
+        x = np.copy(self.vars)
+        for i in range(self.N):
+            x = self.m.f(x, 'off')
+        return x
+
 
 
     def initialisation2(self, y_measured, real_x, real_beta, step):
