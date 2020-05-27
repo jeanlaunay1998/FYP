@@ -58,7 +58,7 @@ class dynamics:
 
         self.observer = observer
         self.wind_mod = 'off'
-        self.mass_change = 'on'
+        self.mass_change = 'off'
 
 
     def temp(self, r):
