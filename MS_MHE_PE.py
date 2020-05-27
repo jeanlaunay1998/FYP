@@ -406,34 +406,35 @@ class MS_MHE_PE:
         self.x_prior = self.vars[0:7]
 
     def estimation(self):
-        grad = self.gradient(self.vars)
-        hess = self.hessian(self.vars)
-
-        if self.method == 'BFGS':
-            self.vars = BFGS(self.vars, hess, self.cost, self.gradient, self.N)
-        elif self.method == 'Newton LS':
-            print(self.cost(self.vars))
-            for i in range(10):
-                self.vars = newton_iter_selection(self.vars, grad, hess, self.N, self.cost, 'on')
-                grad = self.gradient(self.vars)
-                hess = self.hessian(self.vars)
-            print(self.cost(self.vars))
-        elif self.method == 'Newton':
-            for i in range(10):
-                self.vars = newton_iter_selection(self.vars, grad, hess, self.N, self.cost, 'off')
-                grad = self.gradient(self.vars)
-                hess = self.hessian(self.vars)
-                # self.vars = newton_iter(self.vars, grad, hess)
-        elif self.method == 'Gradient':
-            self.vars = gradient_search(self.vars, self.cost, self.gradient)
-        elif self.method == 'Built-in optimizer':
-            print(self.cost(self.vars))
-            # result = minimize(fun=self.cost, x0=vars_select, method='trust-ncg', jac=self.gradient, hess=self.hessian, options = {'maxiter': 10})
-            result = minimize(self.cost, self.vars, method='Nelder-Mead', options = {'maxiter': 30})
-            self.vars = result.x
-            print(self.cost(self.vars))
+        if all(self.vars) == 0:
+            print('MHE has failed, optimization not performed')
         else:
-            print('Optimization method ' + self.method + ' non recognize')
+            grad = self.gradient(self.vars)
+            hess = self.hessian(self.vars)
+            x_0 = self.vars
+            if self.method == 'BFGS':
+                self.vars = BFGS(self.vars, hess, self.cost, self.gradient, self.N)
+            elif self.method == 'Newton LS':
+                self.vars = newton_iter_selection(self.vars, self.gradient, self.hessian, self.N, self.cost, 'on')
+            elif self.method == 'Newton':
+                for i in range(10):
+                    self.vars = newton_iter_selection(self.vars, grad, hess, self.N, self.cost, 'off')
+                    grad = self.gradient(self.vars)
+                    hess = self.hessian(self.vars)
+                    # self.vars = newton_iter(self.vars, grad, hess)
+            elif self.method == 'Gradient':
+                self.vars = gradient_search(self.vars, self.cost, self.gradient)
+            elif self.method == 'Built-in optimizer':
+                print(self.cost(self.vars))
+                # result = minimize(fun=self.cost, x0=vars_select, method='trust-ncg', jac=self.gradient, hess=self.hessian, options = {'maxiter': 10})
+                result = minimize(self.cost, self.vars, method='Nelder-Mead', options = {'maxiter': 30})
+                self.vars = result.x
+                print(self.cost(self.vars))
+            else:
+                print('Optimization method ' + self.method + ' non recognize')
+            if any(self.vars == x_0):
+                print('opt failed')
+                self.vars = np.zeros(len(self.vars))
 
     def last_covariance(self):
         self.ekf.x = self.vars[0:7]

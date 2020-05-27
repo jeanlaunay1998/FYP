@@ -74,7 +74,7 @@ class Memory:
             ekf_y.append(self.o.h(EKF_states[i]))
 
         labelstring = []
-        method = [' arrival cost: 1', 'no arrival cost:10']
+        method = ['Newton LS', 'BFGS']
         for i in range(self.size):
             # labelstring.append('MHE N =' + str(self.N[i]))
             labelstring.append('MHE with ' + method[i])

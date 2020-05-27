@@ -69,31 +69,37 @@ class MHE_regularisation:
         return J
 
     def estimation(self):
-        grad = self.gradient(self.vars)
-        hess = self.hessian(self.vars)
-
-        if self.method == 'BFGS':
-            print(self.cost_function(self.vars))
-            self.vars = BFGS(self.vars, hess, self.cost_function, self.gradient, self.N)
-            print(self.cost_function(self.vars))
-        elif self.method == 'Newton LS':
-            print(self.cost_function(self.vars))
-            self.vars = newton_iter_selection(self.vars, self.gradient, self.hessian, self.N, self.cost_function, 'on')
-            print(self.cost_function(self.vars))
-        elif self.method == 'Newton':
-            for i in range(15):
-                self.vars = newton_iter_selection(self.vars, grad, hess, self.N, self.cost_function, 'off')
-                grad = self.gradient(self.vars)
-                hess = self.hessian(self.vars)
-                # self.vars = newton_iter(self.vars, grad, hess)
-        elif self.method == 'Gradient':
-            self.vars = gradient_search(self.vars, self.cost_function, self.gradient)
-        elif self.method == 'Built-in optimizer':
-
-            result = minimize(fun=self.cost_function, x0=self.vars, method='trust-ncg', jac=self.gradient, hess=self.hessian, options={'maxiter': 50})
-            self.vars = result.x
+        if all(self.vars) == 0:
+            print('MHE has failed, optimization not performed')
         else:
-            print('Optimization method ' + self.method + ' non recognize')
+            grad = self.gradient(self.vars)
+            hess = self.hessian(self.vars)
+            x_0 = self.vars
+            if self.method == 'BFGS':
+                print(self.cost_function(self.vars))
+                self.vars = BFGS(self.vars, hess, self.cost_function, self.gradient, self.N)
+                print(self.cost_function(self.vars))
+            elif self.method == 'Newton LS':
+                print(self.cost_function(self.vars))
+                self.vars = newton_iter_selection(self.vars, self.gradient, self.hessian, self.N, self.cost_function, 'on')
+                print(self.cost_function(self.vars))
+            elif self.method == 'Newton':
+                for i in range(15):
+                    self.vars = newton_iter_selection(self.vars, grad, hess, self.N, self.cost_function, 'off')
+                    grad = self.gradient(self.vars)
+                    hess = self.hessian(self.vars)
+                    # self.vars = newton_iter(self.vars, grad, hess)
+            elif self.method == 'Gradient':
+                self.vars = gradient_search(self.vars, self.cost_function, self.gradient)
+            elif self.method == 'Built-in optimizer':
+
+                result = minimize(fun=self.cost_function, x0=self.vars, method='trust-ncg', jac=self.gradient, hess=self.hessian, options={'maxiter': 50})
+                self.vars = result.x
+            else:
+                print('Optimization method ' + self.method + ' non recognize')
+            if any(self.vars == x_0):
+                print('opt failed')
+                self.vars = np.zeros(len(self.vars))
 
 
     def density_constants(self, height):

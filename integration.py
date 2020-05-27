@@ -44,7 +44,7 @@ m = model(d.r, d.v, initialbeta, measurement_lapse)
 
 
 # covariance matrices
-R = np.array([[400**2, 0, 0], [0, (1e-2)**2, 0], [0, 0, (1e-2)**2]]) # Measurement covariance matrix
+R = np.array([[50**2, 0, 0], [0, (1e-3)**2, 0], [0, 0, (1e-3)**2]]) # Measurement covariance matrix
 P0 = np.zeros((7,7))  # Initial covariance matrix
 Q = np.zeros((7,7))  # Process noise covariance matrix
 qa = 1 #  Estimated deviation of acceleration between real state and approximated state
@@ -62,8 +62,8 @@ Q[6,6] = 100
 
 # Initialisation of estimators
 opt = []
-MHE_type = ['Total ballistic']
-method = ['Newton LS','Newton LS','Newton LS']
+MHE_type = ['Ballistic reg']
+method = ['Newton LS','BFGS']
 # measurement_pen =  [0.06, 75, 75] # coefficients obtained from the estimation opt of MS_MHE_PE
 # model_pen =  [1e3, 1e3, 1e3, 1e1, 1e1, 1e1, 0.411]  # coefficients obtained from the estimation opt of MS_MHE_PE
 measurement_pen =  [1e6, 1e1, 1e1]  # [1e7, 1, 1] #  [1e6, 1e-1, 1e-1] # [0.06, 80, 80] [1, 1e2, 1e3]  #
@@ -81,7 +81,7 @@ for i in range(len(N)):
         opt.append(MS_MHE_PE(m, d, o, N[i], measurement_lapse, measurement_pen, model_pen, [P0, Q, R], opt_method=method[i]))
     else:
         print('Optimization type not recognize')
-        sys/exit()
+        sys.exit()
 
 
 memory = Memory(o, N, len(N))

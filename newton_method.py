@@ -2,6 +2,7 @@ import numpy as np
 # from scipy import linalg as LA
 from numpy import linalg as LA
 import sys
+import math
 
 def newton_iter(x0, grad, hess):
     if LA.norm(grad) < 10e-4:
@@ -26,6 +27,10 @@ def newton_iter_selection(x, grad_fun, hess_fun, N, cost_fun, linesearch='off'):
         if LA.det(hessian) == 0:
             hessian = hessian + np.identity(len(hessian)) * 1e-7
             print('-----------------------------')
+        if math.isnan(np.sum(x0)) or math.isnan(np.sum(hessian)):
+            print('optimization failed')
+            x0 = np.copy(x)
+            break
         p = np.matmul(LA.inv(hessian), gradient)
         if linesearch == 'on':
             alpha = line_Search(x0, cost_fun, p, gradient)
@@ -34,22 +39,16 @@ def newton_iter_selection(x, grad_fun, hess_fun, N, cost_fun, linesearch='off'):
         x0 = x0 - alpha * p
     return x0
 
-def BFGS(x0, B0, cost_fun, gradient, N):
+def BFGS(x0, B, cost_fun, gradient, N):
 
-    x_k = np.zeros((N + 1) * 7)
-    B = np.zeros(((N + 1) * 7, (N + 1) * 7))
-
-    for i in range(0, 2*N+1, 2):
-        for j in range(0, 2*N+1, 2):
-            B[(i//2)*7:(1+i//2)*7, (j//2)*7:(1+j//2)*7] = B0[i*7:(i+1)*7, j*7:(j+1)*7]
-        x_k[(i//2)*7:(i//2+1)*7] = x0[i*7:(i+1)*7]
+    x_k = np.copy(x0)
     grad = gradient(x_k)
 
     if LA.det(B) == 0:
         B = B + np.identity(len(B)) * 10e-7
         print('-----------------------------')
 
-    for i in range(10):
+    for i in range(15):
         if i != 0:
             y_square = np.outer(y_k, np.transpose(y_k))
             ymultS = np.matmul(np.transpose(y_k), S_k)
@@ -57,9 +56,14 @@ def BFGS(x0, B0, cost_fun, gradient, N):
             SmultBmultS = np.matmul(np.transpose(S_k), BmultS)
             B = B + y_square[0]/ymultS - np.matmul(BmultS, np.transpose(BmultS))/SmultBmultS
 
-        # if LA.det(B) == 0:
-        #     B = B + np.identity(len(B)) * 10e-7
-        #     print('-----------------------------')
+        if LA.det(B) == 0:
+            B = B + np.identity(len(B)) * 10e-7
+            print('-----------------------------')
+
+        if math.isnan(any(x_k)) or  math.isnan(np.sum(B)):
+            print('optimization failed')
+            x_k = np.copy(x0)
+            break
 
         p = np.matmul(LA.inv(B), grad)
         alpha = line_Search(x_k, cost_fun, p, grad)
@@ -68,11 +72,7 @@ def BFGS(x0, B0, cost_fun, gradient, N):
         x_k = x_k + S_k
         y_k = gradient(x_k) - grad
         grad = gradient(x_k)
-
-    output = np.ones((2 * N + 1) * 7)
-    for i in range(0, 2 * N + 1, 2):
-        output[i * 7:(i + 1) * 7] = x_k[(i // 2) * 7:(i // 2 + 1) * 7]
-    return output
+    return x_k
 
 def line_Search(x, cost_fun, p, gradient):
     # perform an Armijo line search
