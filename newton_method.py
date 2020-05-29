@@ -21,6 +21,7 @@ def newton_iter(x0, grad, hess):
 
 def newton_iter_selection(x, grad_fun, hess_fun, N, cost_fun, linesearch='off'):
     x0 = np.copy(x)
+    print(cost_fun(x0))
     for i in range(15):
         gradient = grad_fun(x0)
         hessian = hess_fun(x0)
@@ -37,6 +38,7 @@ def newton_iter_selection(x, grad_fun, hess_fun, N, cost_fun, linesearch='off'):
         else:
             alpha = 1
         x0 = x0 - alpha * p
+    print(cost_fun(x0))
     return x0
 
 def BFGS(x0, B, cost_fun, gradient, N):

@@ -62,13 +62,13 @@ Q[6,6] = 100
 
 # Initialisation of estimators
 opt = []
-MHE_type = ['Ballistic reg']
-method = ['Newton LS','BFGS']
+MHE_type = ['Multi-shooting']
+method = ['Newton']
 # measurement_pen =  [0.06, 75, 75] # coefficients obtained from the estimation opt of MS_MHE_PE
 # model_pen =  [1e3, 1e3, 1e3, 1e1, 1e1, 1e1, 0.411]  # coefficients obtained from the estimation opt of MS_MHE_PE
 measurement_pen =  [1e6, 1e1, 1e1]  # [1e7, 1, 1] #  [1e6, 1e-1, 1e-1] # [0.06, 80, 80] [1, 1e2, 1e3]  #
 model_pen =  [1e-3,1e-3,1e-3, 5e-1,5e-1,5e-1, 1e-2] # [1e6, 1e6, 1e6, 1e1, 1e1, 1e1, 1e-1] #  [3, 3, 3, 1, 1, 1, 0.43] #[1, 1, 1, 1e1, 1e1, 1e1, 1e-1]
-arrival = [1, 1]
+arrival = [10, 1]
 
 for i in range(len(N)):
     if MHE_type[i] == 'Total ballistic':
@@ -161,10 +161,14 @@ while height > 5000 and t < t_lim:
                     # opt[i].vars = opt[i].vars * 1.01
                 else:
                     opt[i].slide_window(y_real[step-1])
+                # for j in range(len(opt[i].vars)):
+                #     opt[i].vars[j] = opt[i].vars[j]*(1+ np.random.normal(0, 0.1, 1)[0])
                 opt[i].estimation()
-                x = opt[i].last_state()
-                # memory.save_data(t, opt[i].vars, o.h(m.r, 'off'), opt[i].cost(opt[i].vars), i)
-                memory.save_data(t, x, o.h(m.r, 'off'), opt[i].cost_function(opt[i].vars), i)
+                if MHE_type[i] == 'Total ballistic' or MHE_type[i] == 'Single shooting':
+                    x = opt[i].last_state()
+                    memory.save_data(t, x, o.h(m.r, 'off'), opt[i].cost_function(opt[i].vars), i)
+                else:
+                    memory.save_data(t, opt[i].vars, o.h(m.r, 'off'), opt[i].cost(opt[i].vars), i)
 
 memory.make_plots(real_x, real_beta, y_real, m.Sk, UKF_state, EKF_state)
 # fig, ax = plt.subplots(5,2)

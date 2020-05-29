@@ -71,10 +71,8 @@ class multishooting:
 
         # Arrival cost
         J = 0.5*self.mu*LA.norm(np.matmul(R_mu, self.vars[0:7] - self.x_prior))**2
-
         for i in range(self.N + 1):
             J = J + 0.5 * LA.norm(np.matmul(self.reg1, self.y[i] - h_i[i]))**2
-
         for i in range(0, self.N):
             J = J + 0.5*self.pen*LA.norm(np.matmul(self.reg2, var[(i+1)*7:(i+2)*7] - f_i[i*7:(i+1)*7]))**2
         return J
@@ -133,7 +131,6 @@ class multishooting:
 
         return da_dbeta
 
-
     def dfdx(self, x):
         # x: point at which the derivative is evaluated
         r = x[0:3]
@@ -151,8 +148,7 @@ class multishooting:
         # d(r_k+1)/dr
         for i in range(3):
             for j in range(3):
-                dfdx[i, j] = 0.5*pow(self.m.delta_t, 2)*dadr[i, j]
-
+                dfdx[i, j] = 0.5 * pow(self.m.delta_t, 2) * dadr[i, j]
             dfdx
         for i in range(3):
             dfdx[i, i] = 1 + dfdx[i, i]
@@ -160,29 +156,29 @@ class multishooting:
         # d(r_k+1)/dv
         for i in range(3):
             for j in range(3):
-                dfdx[i, j+3] = 0.5*pow(self.m.delta_t, 2)*dadv[i, j]
+                dfdx[i, j + 3] = 0.5 * pow(self.m.delta_t, 2) * dadv[i, j]
         for i in range(3):
-            dfdx[i, i+3] = self.m.delta_t + dfdx[i, i+3]
+            dfdx[i, i + 3] = self.m.delta_t + dfdx[i, i + 3]
 
         # d(r_k+1)/dbeta
         for i in range(3):
-            dfdx[i, 6] = 0.5*(self.m.delta_t**2)*dadbeta[i]
+            dfdx[i, 6] = 0.5 * (self.m.delta_t ** 2) * dadbeta[i]
 
         # d(v_k+1)/dr
         for i in range(3):
             for j in range(3):
-                dfdx[i+3, j] = self.m.delta_t*dadr[i, j]
+                dfdx[i + 3, j] = self.m.delta_t * dadr[i, j]
 
         # d(v_k+1)/dv
         for i in range(3):
             for j in range(3):
-                dfdx[i+3, j+3] = self.m.delta_t*dadv[i, j]
+                dfdx[i + 3, j + 3] = self.m.delta_t * dadv[i, j]
         for i in range(3):
-            dfdx[i+3, i + 3] = 1 + dfdx[i+3, i + 3]
+            dfdx[i + 3, i + 3] = 1 + dfdx[i + 3, i + 3]
 
         # d(v_k+1)/dbeta
         for i in range(3):
-            dfdx[i+3, 6] = self.m.delta_t*dadbeta[i]
+            dfdx[i + 3, 6] = self.m.delta_t * dadbeta[i]
 
         dfdx[6, 6] = 1
         return dfdx
@@ -213,7 +209,7 @@ class multishooting:
         for i in range(0,self.N + 1):
             dh_i.append(self.dh(var[i*7:(i+1)*7]))
             df_i.append(self.dfdx(var[i*7:(i+1)*7]))
-            f_i[i * 7:(i + 1) * 7] = self.m.f(var[i * 7:(i + 1) * 7], 'off')
+            f_i.append(self.m.f(var[i * 7:(i + 1) * 7], 'off'))
             # r, v, a, beta = self.m.f(var[i*7:i*7+3], var[i*7+3:i*7+6], var[i*7+6], 'off')
             # f_i.append([r[0], r[1], r[2], v[0], v[1], v[2], beta])
 
@@ -232,7 +228,7 @@ class multishooting:
 
         for i in range(1,self.N):
             grad[i*7:(i+1)*7] = np.matmul(np.transpose(dh_i[i]), np.matmul(R1, self.o.h(var[i*7:i*7+3], 'off') - self.y[i])) \
-                                - np.matmul(np.transpose(df_i[i//2]), self.pen*np.matmul(R2, (var[(i+1)*7:(i+2)*7] - f_i[i]))) \
+                                - np.matmul(np.transpose(df_i[i]), self.pen*np.matmul(R2, (var[(i+1)*7:(i+2)*7] - f_i[i]))) \
                                 + self.pen*np.matmul(R2,(var[i*7:(i+1)*7] - f_i[i-1]))
 
         grad[self.N*7:(self.N+1)*7] = np.matmul(np.transpose(dh_i[self.N]),  np.matmul(R1, self.o.h(var[self.N*7:self.N*7+3], 'off') - self.y[self.N])) \
@@ -241,7 +237,7 @@ class multishooting:
         # checking method
         # for l in range(len(var)):
         #     if (l//7)%2 == 0:
-        #         eps = 0.1
+        #         eps = 10
         #         plus_eps = np.copy(var)
         #         plus_eps[l] = plus_eps[l]+eps
         #         minus_eps = np.copy(var)
@@ -256,7 +252,7 @@ class multishooting:
         #         print(l, ': diff (%): ', 100*np.abs(np.divide(grad[l]-derivative, grad[l], out=np.zeros_like(grad[l]), where=grad[l]!=0)))
         #         # print(l, ': diff (%): ', 100*np.abs(np.divide(grad[l]-derivative, derivative, out=np.zeros_like(derivative), where=derivative!=0)))
         #         print('  analytical: ', grad[l], '; numerical: ', derivative)
-        # sys.exit()
+        # print('stop here')
 
         return grad
 
@@ -280,13 +276,13 @@ class multishooting:
         H[0:7, 0:7] = np.matmul(np.transpose(dhdx), np.matmul(R1, dhdx)) + self.pen*np.matmul(np.transpose(dfdx), np.matmul(R2, dfdx)) + self.mu*R_mu # dJ/d(x^2)
         H[0:7, 7:14] = -self.pen*np.matmul(np.transpose(dfdx), R2)  # dJ/d(x_i)d(x_i+1)
 
-        for i in range(1,*self.N): # it does not cover last point
+        for i in range(1, self.N): # it does not cover last point
             dhdx = self.dh(var[i*7:(i+1)*7])
             dfdx = self.dfdx(var[i*7:(i+1)*7])
             H[i*7:(i+1)*7, i*7:(i+1)*7] = np.matmul(np.transpose(dhdx), np.matmul(R1, dhdx)) + self.pen * np.matmul(np.transpose(dfdx), np.matmul(R2, dfdx)) \
                                           + self.pen*R2  # dJ/d(x_i^2)
             H[i*7:(i+1)*7, (i+1)*7:(i+2)*7] = -self.pen*np.matmul(np.transpose(dfdx), R2)  # dJ/d(x_i)d(x_i+1)
-            H[i*7:(i+1)*7, (i-1)*7:i*7] = -self.pen*np.matmul(R2, self.dfdx(var[(i-2)*7:(i-1)*7])) # dJ/d(x_i)d(x_i-1)
+            H[i*7:(i+1)*7, (i-1)*7:i*7] = -self.pen*np.matmul(R2, self.dfdx(var[(i-1)*7:i*7])) # dJ/d(x_i)d(x_i-1)
 
         dhdx = self.dh(var[self.N*7:(self.N+1)*7])
         H[self.N*7:(self.N+1)*7, self.N*7:(self.N+1)*7] = np.matmul(np.transpose(dhdx),np.matmul(R1, dhdx)) + self.pen * R2  # dJ/d(x^2)
@@ -295,7 +291,7 @@ class multishooting:
         # checking method
         # for l in range(len(var)):
         #     if (l // 7) % 2 == 0:
-        #         eps = 100
+        #         eps = 1
         #
         #         plus_eps = np.copy(var)
         #         plus_eps[l] = plus_eps[l]+eps
@@ -307,23 +303,14 @@ class multishooting:
         #         derivative = (A-B)/(2*eps)
         #         # H[l, :] = derivative
         #         print(l, ': max diff (%): ', 100*np.amax(np.abs(np.divide(H[l,: ] - derivative, H[l,: ], out=np.zeros_like(H[l,: ]), where=H[l,: ]!=0))))
-        #         # print('numerical', derivative)
-        #         # print('analytical', H[l, :])
+        #         print('numerical', derivative)
+        #         print('analytical', H[l, :])
         # sys.exit()
-
-        if selection == 'on':
-            reduced_H = np.ones(((self.N+1)*7,(self.N+1)*7))
-            for i in range(0, 2 * self.N + 1, 2):
-                for j in range(0, 2 * self.N + 1, 2):
-                    reduced_H[(i // 2) * 7:(1 + i // 2) * 7, (j // 2) * 7:(1 + j // 2) * 7] = H[i * 7:(i + 1) * 7,
-                                                                                            j * 7:(j + 1) * 7]
-            return reduced_H
-        else:
-            return H
+        return H
 
     def slide_window(self, last_y):
         # slide horizon of predicted states
-        self.vars[0:(self.N-1)*7] = self.vars[7:(self.N+1)*7]
+        self.vars[0:self.N*7] = self.vars[7:(self.N+1)*7]
         self.vars[self.N*7:self.N*7+7] = self.m.f(self.vars[(self.N-1)*7:self.N*7], 'off')
             # , self.vars[2*self.N*7+3:2*self.N*7+6], throw, self.vars[2*self.N*7+6] = \
             # self.m.f(self.vars[2*self.N*7:2*self.N*7+3],self.vars[2*self.N*7+3:2*self.N*7+6],self.vars[2*self.N*7+6])
