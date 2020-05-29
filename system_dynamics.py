@@ -46,7 +46,7 @@ class dynamics:
 
         # white noise accounting for not modeled physics
         self.delta_o = np.random.normal(0, pow(0.01*self.beta_o, 2), size=1)
-        self.a_res = 0 # np.random.normal(0, pow(0.01*LA.norm(self.a), 2), size=1) TO BE CHANGED
+        self.a_res = 0
         self.beta = self.beta_o + self.delta_o
         self.beta = self.beta.tolist()
 
@@ -134,6 +134,7 @@ class dynamics:
 
     def acceleration(self, v, r):
         acc = -np.multiply((self.G*self.M)/pow(LA.norm(r), 3), r) - np.multiply(self.density_h(r)*LA.norm(v)/(2*self.ballistic_coef(v, r)), v)
+        self.a_res = np.random.normal(0, pow(0.01 * LA.norm(acc), 2), size=1)
         return list(acc + self.a_res)
 
     def dx(self, v, r):

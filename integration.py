@@ -72,9 +72,9 @@ arrival = [1, 1]
 
 for i in range(len(N)):
     if MHE_type[i] == 'Total ballistic':
-        opt.append(total_ballistic(m, o, N[i], measurement_lapse, model_pen, method[i]))
+        opt.append(total_ballistic(m, o, N[i], measurement_lapse, model_pen, method[i], Q))
     elif MHE_type[i] == 'Ballistic reg':
-        opt.append(MHE_regularisation(m, o, N[i], measurement_lapse, model_pen, method[i]))
+        opt.append(MHE_regularisation(m, o, N[i], measurement_lapse, model_pen, method[i], Q))
     elif MHE_type[i] == 'Multi-shooting':
         opt.append(multishooting(m, d, o, N[i], measurement_lapse, measurement_pen, model_pen, Q, R, arrival[i], method[i]))
     elif MHE_type[i] == 'MS with PE':
@@ -164,7 +164,7 @@ while height > 5000 and t < t_lim:
                 # for j in range(len(opt[i].vars)):
                 #     opt[i].vars[j] = opt[i].vars[j]*(1+ np.random.normal(0, 0.1, 1)[0])
                 opt[i].estimation()
-                if MHE_type[i] == 'Total ballistic' or MHE_type[i] == 'Single shooting':
+                if MHE_type[i] == 'Total ballistic' or MHE_type[i] == 'Ballistic reg':
                     x = opt[i].last_state()
                     memory.save_data(t, x, o.h(m.r, 'off'), opt[i].cost(opt[i].vars), i)
                 else:
