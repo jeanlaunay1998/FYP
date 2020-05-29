@@ -20,10 +20,10 @@ from memory import Memory
 import matplotlib.pyplot as plt
 import seaborn as sns
 
-t_lim = 130
-N = [20, 20]  # size of the horizon
+t_lim = 9
+N = [2, 2]  # size of the horizon
 measurement_lapse = 0.5  # time lapse between every measurement
-stop_points = [20, 65, 90, 120]
+stop_points = [2, 4, 6, 8]#[20, 65, 90, 120]
 
 t = 0.00
 step = int(0)  # number of measurements measurements made
@@ -31,7 +31,7 @@ delta = int(0)
 height = 80e3
 # Initialisation of true dynamics and approximation model
 o = SateliteObserver(22, 10)  #40.24, 3.42)
-d = dynamics(height, 22, 0, 6000, -5, 60, o)
+d = dynamics(height, 22, 0, 6000, -5, 60, o, 'off', 'off')
 initialbeta = d.beta[0] + np.random.normal(0, 0.01*d.beta[0], size=1)[0]
 m = model(d.r, d.v, initialbeta, measurement_lapse)
 
@@ -55,7 +55,7 @@ Q[6,6] = 100
 
 # Initialisation of estimators
 opt = []
-MHE_type = ['Total ballistic', 'Ballistic reg']
+MHE_type = ['Hybrid multi-shooting', 'Ballistic reg']
 method = ['Newton LS', 'Newton LS']
 # measurement_pen =  [0.06, 75, 75] # coefficients obtained from the estimation opt of MS_MHE_PE
 # model_pen =  [1e3, 1e3, 1e3, 1e1, 1e1, 1e1, 0.411]  # coefficients obtained from the estimation opt of MS_MHE_PE
@@ -64,7 +64,7 @@ model_pen =  [1e-3,1e-3,1e-3, 5e-1,5e-1,5e-1, 1e-2] # [1e6, 1e6, 1e6, 1e1, 1e1, 
 arrival = [1, 1]
 
 for i in range(len(N)):
-    if MHE_type[i] == 'Total ballistic':
+    if MHE_type[i] == 'Hybrid multi-shooting':
         opt.append(total_ballistic(m, o, N[i], measurement_lapse, model_pen, method[i]))
     elif MHE_type[i] == 'Ballistic reg':
         opt.append(MHE_regularisation(m, o, N[i], measurement_lapse, model_pen, method[i]))
@@ -177,7 +177,6 @@ fig, ax = plt.subplots(len(stop_points)//2, 2)
 
 for i in range(len(stop_points)):
     for j in range(len(opt)):
-        iter = np.linspace(0, 40, len(np.array(cost_history[i])[j]))
         y = np.array(cost_history[i])[j] - np.min(np.array(cost_history[i])[j])
         for l in range(len(y)):
             if y[l] == 0:
@@ -185,9 +184,15 @@ for i in range(len(stop_points)):
             else:
                 y[l] = np.log10(y[l])
         # y = np.divide()
-        ax[i//2, i%2].plot(y)
-plt.xlabel('Iterations')
-plt.ylabel('log(Cost - final Cost)')
+        ax[i//2, i%2].plot(y,  label=MHE_type[j])
+        ax[i//2, i%2].set_title('Time (s) = ' +  str(stop_points[i]))
+
+for axs in ax.flat:
+    axs.set(xlabel='Iterations', ylabel='log(Cost)')
+for axs in ax.flat:
+    axs.label_outer()
+handles, labels = ax[1, 0].get_legend_handles_labels()
+fig.legend(handles, labels, loc='upper center', ncol=4)
 plt.show()
 
 # for i in range(len(stop_points)):
