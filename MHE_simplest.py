@@ -41,7 +41,7 @@ class MHE:
             self.x_init = np.array(self.x_apriori)
 
 
-    def cost_function(self, x):
+    def cost(self, x):
 
         # built in optimisation function delivers the input in shape (6,1) when shape (2,3) is required
         if len(x) != len(self.x_apriori):
@@ -66,9 +66,9 @@ class MHE:
 
     def search(self, method='heuristic'):
         if method=='heuristic':
-            res = minimize(self.cost_function, self.x_init, method='Nelder-Mead', tol=1e-6)
+            res = minimize(self.cost, self.x_init, method='Nelder-Mead', tol=1e-6)
         elif method=='gradient':
-            res = minimize(self.cost_function, self.x_init, method='BFGS', jac=self.gradient, options={'gtol':1e-2, 'maxiter':100})
+            res = minimize(self.cost, self.x_init, method='BFGS', jac=self.gradient, options={'gtol':1e-2, 'maxiter':100})
         else:
             print('Error: Optimization method not recognized')
             sys.exit()

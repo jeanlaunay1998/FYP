@@ -1,5 +1,6 @@
 import matplotlib.pyplot as plt
 import numpy as np
+import seaborn as sns
 import sys
 
 class Memory:
@@ -67,6 +68,7 @@ class Memory:
 
 
     def make_plots(self, real_x, real_beta, y_real, Sk, UKF_states, EKF_states):
+        sns.set()
         ukf_y = []
         ekf_y = []
         for i in range(len(EKF_states)):

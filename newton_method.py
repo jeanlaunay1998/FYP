@@ -112,7 +112,31 @@ def gradient_search(x0, cost_fun, gradient_fun):
 def is_pos_def(x):
     return np.all(np.linalg.eigvals(x) > 0)
 
-
+def conv_analysis(x, grad_fun, hess_fun, cost_fun, linesearch='off'):
+    x0 = np.copy(x)
+    x_history = [x0]
+    cost_history = [cost_fun(x0)]
+    print(cost_fun(x0))
+    for i in range(40):
+        gradient = grad_fun(x0)
+        hessian = hess_fun(x0)
+        if LA.det(hessian) == 0:
+            hessian = hessian + np.identity(len(hessian)) * 1e-7
+            print('-----------------------------')
+        if math.isnan(np.sum(x0)) or math.isnan(np.sum(hessian)):
+            print('optimization failed')
+            x0 = np.copy(x)
+            break
+        p = np.matmul(LA.inv(hessian), gradient)
+        if linesearch == 'on':
+            alpha = line_Search(x0, cost_fun, p, gradient)
+        else:
+            alpha = 1
+        x0 = x0 - alpha * p
+        x_history.append(x0)
+        cost_history.append(cost_fun(x0))
+    print(cost_fun(x0))
+    return x_history, cost_history
 
 # print('max and min eigenvalues')
     # lambdas = LA.eigvals(hessian)

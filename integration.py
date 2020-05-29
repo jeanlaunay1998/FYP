@@ -38,7 +38,7 @@ height = 80e3
 
 # Initialisation of true dynamics and approximation model
 o = SateliteObserver(22, 10)  #40.24, 3.42)
-d = dynamics(height, 22, 0, 6000, -5, 60, o)
+d = dynamics(height, 22, 0, 6000, -5, 60, o, wind='off', mass_change='off')
 initialbeta = d.beta[0] + np.random.normal(0, 0.01*d.beta[0], size=1)[0]
 m = model(d.r, d.v, initialbeta, measurement_lapse)
 
@@ -47,7 +47,7 @@ m = model(d.r, d.v, initialbeta, measurement_lapse)
 R = np.array([[50**2, 0, 0], [0, (1e-3)**2, 0], [0, 0, (1e-3)**2]]) # Measurement covariance matrix
 P0 = np.zeros((7,7))  # Initial covariance matrix
 Q = np.zeros((7,7))  # Process noise covariance matrix
-qa = 1 #  Estimated deviation of acceleration between real state and approximated state
+qa = 5 #  Estimated deviation of acceleration between real state and approximated state
 
 for i in range(3):
     P0[i,i] = 500**2
@@ -62,13 +62,13 @@ Q[6,6] = 100
 
 # Initialisation of estimators
 opt = []
-MHE_type = ['Multi-shooting']
-method = ['Newton']
+MHE_type = ['Ballistic reg']
+method = ['Newton LS']
 # measurement_pen =  [0.06, 75, 75] # coefficients obtained from the estimation opt of MS_MHE_PE
 # model_pen =  [1e3, 1e3, 1e3, 1e1, 1e1, 1e1, 0.411]  # coefficients obtained from the estimation opt of MS_MHE_PE
 measurement_pen =  [1e6, 1e1, 1e1]  # [1e7, 1, 1] #  [1e6, 1e-1, 1e-1] # [0.06, 80, 80] [1, 1e2, 1e3]  #
 model_pen =  [1e-3,1e-3,1e-3, 5e-1,5e-1,5e-1, 1e-2] # [1e6, 1e6, 1e6, 1e1, 1e1, 1e1, 1e-1] #  [3, 3, 3, 1, 1, 1, 0.43] #[1, 1, 1, 1e1, 1e1, 1e1, 1e-1]
-arrival = [10, 1]
+arrival = [1, 1]
 
 for i in range(len(N)):
     if MHE_type[i] == 'Total ballistic':
@@ -166,7 +166,7 @@ while height > 5000 and t < t_lim:
                 opt[i].estimation()
                 if MHE_type[i] == 'Total ballistic' or MHE_type[i] == 'Single shooting':
                     x = opt[i].last_state()
-                    memory.save_data(t, x, o.h(m.r, 'off'), opt[i].cost_function(opt[i].vars), i)
+                    memory.save_data(t, x, o.h(m.r, 'off'), opt[i].cost(opt[i].vars), i)
                 else:
                     memory.save_data(t, opt[i].vars, o.h(m.r, 'off'), opt[i].cost(opt[i].vars), i)
 

@@ -60,7 +60,7 @@ class total_ballistic:
         self.x_apriori = self.vars[0:7]
 
 
-    def cost_function(self, x):
+    def cost(self, x):
         x_iplus1 = np.copy(x[0:7])
         J = 0.5*self.mu1*(LA.norm(np.matmul(self.R_mu, x_iplus1 - self.x_apriori))**2)
         for i in range(0, self.N):
@@ -79,24 +79,24 @@ class total_ballistic:
             hess = self.hessian(self.vars)
             x_0 = self.vars
             if self.method == 'BFGS':
-                print(self.cost_function(self.vars))
-                self.vars = BFGS(self.vars, hess, self.cost_function, self.gradient, self.N)
-                print(self.cost_function(self.vars))
+                print(self.cost(self.vars))
+                self.vars = BFGS(self.vars, hess, self.cost, self.gradient, self.N)
+                print(self.cost(self.vars))
             elif self.method == 'Newton LS':
-                print(self.cost_function(self.vars))
-                self.vars = newton_iter_selection(self.vars, self.gradient, self.hessian, self.N, self.cost_function, 'on')
-                print(self.cost_function(self.vars))
+                print(self.cost(self.vars))
+                self.vars = newton_iter_selection(self.vars, self.gradient, self.hessian, self.N, self.cost, 'on')
+                print(self.cost(self.vars))
             elif self.method == 'Newton':
                 for i in range(15):
-                    self.vars = newton_iter_selection(self.vars, grad, hess, self.N, self.cost_function, 'off')
+                    self.vars = newton_iter_selection(self.vars, grad, hess, self.N, self.cost, 'off')
                     grad = self.gradient(self.vars)
                     hess = self.hessian(self.vars)
                     # self.vars = newton_iter(self.vars, grad, hess)
             elif self.method == 'Gradient':
-                self.vars = gradient_search(self.vars, self.cost_function, self.gradient)
+                self.vars = gradient_search(self.vars, self.cost, self.gradient)
             elif self.method == 'Built-in optimizer':
 
-                result = minimize(fun=self.cost_function, x0=self.vars, method='trust-ncg', jac=self.gradient, hess=self.hessian, options={'maxiter': 50})
+                result = minimize(fun=self.cost, x0=self.vars, method='trust-ncg', jac=self.gradient, hess=self.hessian, options={'maxiter': 50})
                 self.vars = result.x
             else:
                 print('Optimization method ' + self.method + ' non recognize')
@@ -292,9 +292,9 @@ class total_ballistic:
         #         minus_eps = np.copy(x)
         #         minus_eps[l] = minus_eps[l] - eps
         #
-        #         A = self.cost_function(plus_eps)
+        #         A = self.cost(plus_eps)
         #         print('--')
-        #         B = self.cost_function(minus_eps)
+        #         B = self.cost(minus_eps)
         #         # print(A)
         #         # print(B)
         #         derivative = (A-B)/(2*eps)

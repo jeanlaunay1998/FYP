@@ -4,7 +4,7 @@ import sys
 
 
 class dynamics:
-    def __init__(self, ho, lat, long, vo, gamma_o, theta_o, observer):
+    def __init__(self, ho, lat, long, vo, gamma_o, theta_o, observer, wind='off', mass_change='off'):
         # ho: initial height
         # lat: initial latitude
         # long: initial longitude
@@ -57,8 +57,8 @@ class dynamics:
         self.delta_t = 0.01
 
         self.observer = observer
-        self.wind_mod = 'off'
-        self.mass_change = 'off'
+        self.wind_mod = wind
+        self.mass_change = mass_change
 
 
     def temp(self, r):
