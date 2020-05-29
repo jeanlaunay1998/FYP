@@ -20,10 +20,10 @@ from memory import Memory
 import matplotlib.pyplot as plt
 import seaborn as sns
 
-t_lim = 7
+t_lim = 130
 N = [20, 20]  # size of the horizon
 measurement_lapse = 0.5  # time lapse between every measurement
-stop_points = [20, 50, 65, 90, 120]
+stop_points = [20, 65, 90, 120]
 
 t = 0.00
 step = int(0)  # number of measurements measurements made
@@ -178,7 +178,16 @@ fig, ax = plt.subplots(len(stop_points)//2, 2)
 for i in range(len(stop_points)):
     for j in range(len(opt)):
         iter = np.linspace(0, 40, len(np.array(cost_history[i])[j]))
-        ax[i%2].plot(np.array(cost_history[i])[j] - np.min(np.array(cost_history[i])[j]))
+        y = np.array(cost_history[i])[j] - np.min(np.array(cost_history[i])[j])
+        for l in range(len(y)):
+            if y[l] == 0:
+                y[l] = y[l-1]
+            else:
+                y[l] = np.log10(y[l])
+        # y = np.divide()
+        ax[i//2, i%2].plot(y)
+plt.xlabel('Iterations')
+plt.ylabel('log(Cost - final Cost)')
 plt.show()
 
 # for i in range(len(stop_points)):
