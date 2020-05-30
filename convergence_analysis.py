@@ -20,10 +20,10 @@ from memory import Memory
 import matplotlib.pyplot as plt
 import seaborn as sns
 
-t_lim = 9
-N = [2, 2]  # size of the horizon
+t_lim = 121
+N = [20, 20, 20]  # size of the horizon
 measurement_lapse = 0.5  # time lapse between every measurement
-stop_points = [2, 4, 6, 8]#[20, 65, 90, 120]
+stop_points =  [20, 65, 90, 120] # [2, 4, 6, 8]
 
 t = 0.00
 step = int(0)  # number of measurements measurements made
@@ -55,13 +55,13 @@ Q[6,6] = 100
 
 # Initialisation of estimators
 opt = []
-MHE_type = ['Hybrid multi-shooting', 'Ballistic reg']
-method = ['Newton LS', 'Newton LS']
+MHE_type = [ 'Ballistic reg', 'Hybrid multi-shooting', 'Multi-shooting']
+method = ['Newton LS', 'Newton LS','Newton LS']
 # measurement_pen =  [0.06, 75, 75] # coefficients obtained from the estimation opt of MS_MHE_PE
 # model_pen =  [1e3, 1e3, 1e3, 1e1, 1e1, 1e1, 0.411]  # coefficients obtained from the estimation opt of MS_MHE_PE
 measurement_pen =  [1e6, 1e1, 1e1]  # [1e7, 1, 1] #  [1e6, 1e-1, 1e-1] # [0.06, 80, 80] [1, 1e2, 1e3]  #
 model_pen =  [1e-3,1e-3,1e-3, 5e-1,5e-1,5e-1, 1e-2] # [1e6, 1e6, 1e6, 1e1, 1e1, 1e1, 1e-1] #  [3, 3, 3, 1, 1, 1, 0.43] #[1, 1, 1, 1e1, 1e1, 1e1, 1e-1]
-arrival = [1, 1]
+arrival = [1, 1, 1]
 
 for i in range(len(N)):
     if MHE_type[i] == 'Hybrid multi-shooting':
@@ -100,8 +100,10 @@ y_minus1 = o.h(d.r, 'off')
 penalties = []
 
 cost_history = []
+x_history = []
 for i in range(len(stop_points)):
     cost_history.append([])
+    x_history.append([])
 k = 0
 
 while height > 5000 and t < t_lim:
@@ -166,33 +168,110 @@ while height > 5000 and t < t_lim:
                         print('k:', k)
                         z, c = conv_analysis(opt[i].vars, opt[i].gradient, opt[i].hessian, opt[i].cost, 'on')
                         cost_history[k].append(c)
+                        x_history[k].append(z)
                         if i == len(opt)-1: k = k+1
                         print('k:', k)
                 opt[i].estimation()
 
 
 sns.set()
-print(len(stop_points)//2, 2)
 fig, ax = plt.subplots(len(stop_points)//2, 2)
 
 for i in range(len(stop_points)):
     for j in range(len(opt)):
         y = np.array(cost_history[i])[j] - np.min(np.array(cost_history[i])[j])
-        for l in range(len(y)):
-            if y[l] == 0:
-                y[l] = y[l-1]
-            else:
-                y[l] = np.log10(y[l])
+        # for l in range(len(y)):
+        #     if y[l] == 0:
+        #         y[l] = y[l-1]
+        #     else:
+        #         y[l] = np.log10(y[l])
         # y = np.divide()
         ax[i//2, i%2].plot(y,  label=MHE_type[j])
-        ax[i//2, i%2].set_title('Time (s) = ' +  str(stop_points[i]))
+    ax[i//2, i%2].set_title('Time (s) = ' +  str(stop_points[i]))
+    ax[i//2, i%2].set_yscale("log")
 
 for axs in ax.flat:
-    axs.set(xlabel='Iterations', ylabel='log(Cost)')
+    axs.set(xlabel='Iterations', ylabel=r'$C_i - C_{f}$')
 for axs in ax.flat:
     axs.label_outer()
+
 handles, labels = ax[1, 0].get_legend_handles_labels()
 fig.legend(handles, labels, loc='upper center', ncol=4)
+
+
+# change in state between iterations
+colors= ['b', 'r', 'g', 'y']
+shape = ['-+', '--', '-s']
+
+fig1, ax1 = plt.subplots(len(stop_points)//2, 2)
+fig2, ax2 = plt.subplots(len(stop_points)//2, 2)
+fig3, ax3 = plt.subplots(len(stop_points)//2, 2)
+
+for i in range(len(stop_points)):
+    for j in range(len(opt)):
+        r_change = []
+        v_change = []
+        beta_change = []
+        for k in range(len(x_history[i][j])-1):
+            if len(x_history[i][j][k]) == 7:
+                r_change.append(np.sum(np.power(np.array(x_history[i][j][k+1])[0:3] - np.array(x_history[i][j][k])[0:3], 2))/3)
+                v_change.append(np.sum(np.power(np.array(x_history[i][j][k+1])[3:6] - np.array(x_history[i][j][k])[3:6], 2))/3)
+                beta_change.append(np.sum(np.power(np.array(x_history[i][j][k+1])[6] - np.array(x_history[i][j][k])[6], 2)))
+            if len(x_history[i][j][k]) == 7 + opt[j].N:
+                r_change.append(np.sum(np.power(np.array(x_history[i][j][k+1])[0:3] - np.array(x_history[i][j][k])[0:3], 2))/3)
+                v_change.append(np.sum(np.power(np.array(x_history[i][j][k+1])[3:6] - np.array(x_history[i][j][k])[3:6], 2))/3)
+                beta_change.append(np.sum(np.power(np.array(x_history[i][j][k+1])[6:len(x_history[i][j][k])] - np.array(x_history[i][j][k])[6:len(x_history[i][j][k])], 2))/(opt[j].N+1))
+            if len(x_history[i][j][k]) == 7*(1+opt[j].N):
+                r_change.append(np.sum(np.power(np.array(x_history[i][j][k+1])[0:3] - np.array(x_history[i][j][k])[0:3], 2))/(3*(opt[j].N +1)))
+                v_change.append(np.sum(np.power(np.array(x_history[i][j][k+1])[3:6] - np.array(x_history[i][j][k])[3:6], 2))/(3*(opt[j].N +1)))
+                beta_change.append(np.sum(np.power(np.array(x_history[i][j][k+1])[6] - np.array(x_history[i][j][k])[6], 2))/(opt[j].N +1))
+                for n in range(1, opt[j].N):
+                    r_change[len(r_change)-1] = r_change[len(r_change)-1] + np.sum(np.power(np.array(x_history[i][j][k+1])[n*7:n*7+3] - np.array(x_history[i][j][k])[n*7:n*7+3], 2))/(3*(opt[j].N +1))
+                    v_change[len(r_change)-1] = v_change[len(r_change)-1] + np.sum(np.power(np.array(x_history[i][j][k+1])[n*7+3:n*7+6] - np.array(x_history[i][j][k])[n*7+3:n*7+6], 2))/(3*(opt[j].N +1))
+                    beta_change[len(r_change)-1] = beta_change[len(r_change)-1] + np.sum(np.power(np.array(x_history[i][j][k+1])[n*7+6] - np.array(x_history[i][j][k])[n*7+6], 2))/(opt[j].N +1)
+        # for l in range(len(r_change)):
+        #     if r_change[l] == 0:
+        #         r_change[l] = r_change[l-1]
+        #         v_change[l] = v_change[l-1]
+        #         beta_change[l] = beta_change[l-1]
+        #     else:
+        #         r_change[l] = np.log10(r_change[l])
+        #         v_change[l] = np.log10(v_change[l])
+        #         beta_change[l] = np.log10(beta_change[l])
+        linetype = shape[j] + colors[i]
+
+        ax1[i//2, i%2].plot(r_change, label=MHE_type[j])
+        ax2[i//2, i%2].plot(v_change, label=MHE_type[j])
+        ax3[i//2, i%2].plot(beta_change, label=MHE_type[j])
+
+    ax1[i//2, i%2].set_yscale('log')
+    ax2[i//2, i%2].set_yscale('log')
+    ax3[i//2, i%2].set_yscale('log')
+    ax1[i // 2, i % 2].set_title('Time (s) = ' + str(stop_points[i]))
+    ax2[i // 2, i % 2].set_title('Time (s) = ' + str(stop_points[i]))
+    ax3[i // 2, i % 2].set_title('Time (s) = ' + str(stop_points[i]))
+
+for axs in ax1.flat:
+    axs.set(xlabel='Iterations', ylabel=r'$||\Delta \hat r_i ||^2$')
+for axs in ax1.flat:
+    axs.label_outer()
+for axs in ax2.flat:
+    axs.set(xlabel='Iterations', ylabel=r'$||\Delta  \hat v_i ||^2$')
+for axs in ax2.flat:
+    axs.label_outer()
+for axs in ax3.flat:
+    axs.set(xlabel='Iterations', ylabel=r'$||\Delta \hat \beta_i ||^2$')
+for axs in ax3.flat:
+    axs.label_outer()
+
+handles, labels = ax1[1, 0].get_legend_handles_labels()
+fig1.legend(handles, labels, loc='upper center', ncol=4)
+
+handles, labels = ax2[1, 0].get_legend_handles_labels()
+fig2.legend(handles, labels, loc='upper center', ncol=4)
+
+handles, labels = ax3[1, 0].get_legend_handles_labels()
+fig3.legend(handles, labels, loc='upper center', ncol=4)
 plt.show()
 
 # for i in range(len(stop_points)):
