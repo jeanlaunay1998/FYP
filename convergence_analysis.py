@@ -20,10 +20,10 @@ from memory import Memory
 import matplotlib.pyplot as plt
 import seaborn as sns
 
-t_lim = 121
-N = [20, 20, 20]  # size of the horizon
+t_lim = 9
+N = [2, 2, 2]  # size of the horizon
 measurement_lapse = 0.5  # time lapse between every measurement
-stop_points =  [20, 65, 90, 120] # [2, 4, 6, 8]
+stop_points = [2, 4, 6, 8] # [20, 65, 90, 120] #
 
 t = 0.00
 step = int(0)  # number of measurements measurements made
@@ -214,21 +214,22 @@ for i in range(len(stop_points)):
         beta_change = []
         for k in range(len(x_history[i][j])-1):
             if len(x_history[i][j][k]) == 7:
-                r_change.append(np.sum(np.power(np.array(x_history[i][j][k+1])[0:3] - np.array(x_history[i][j][k])[0:3], 2))/3)
-                v_change.append(np.sum(np.power(np.array(x_history[i][j][k+1])[3:6] - np.array(x_history[i][j][k])[3:6], 2))/3)
-                beta_change.append(np.sum(np.power(np.array(x_history[i][j][k+1])[6] - np.array(x_history[i][j][k])[6], 2)))
+                r_change.append(np.power(np.sum(np.power(np.array(x_history[i][j][k+1])[0:3] - np.array(x_history[i][j][k])[0:3], 2)), 0.5))
+                v_change.append(np.power(np.sum(np.power(np.array(x_history[i][j][k+1])[3:6] - np.array(x_history[i][j][k])[3:6], 2)), 0.5))
+                beta_change.append(np.sum(np.abs(np.array(x_history[i][j][k+1])[6] - np.array(x_history[i][j][k])[6])))
             if len(x_history[i][j][k]) == 7 + opt[j].N:
-                r_change.append(np.sum(np.power(np.array(x_history[i][j][k+1])[0:3] - np.array(x_history[i][j][k])[0:3], 2))/3)
-                v_change.append(np.sum(np.power(np.array(x_history[i][j][k+1])[3:6] - np.array(x_history[i][j][k])[3:6], 2))/3)
-                beta_change.append(np.sum(np.power(np.array(x_history[i][j][k+1])[6:len(x_history[i][j][k])] - np.array(x_history[i][j][k])[6:len(x_history[i][j][k])], 2))/(opt[j].N+1))
+                r_change.append(np.power(np.sum(np.power(np.array(x_history[i][j][k+1])[0:3] - np.array(x_history[i][j][k])[0:3], 2)), 0.5))
+                v_change.append(np.power(np.sum(np.power(np.array(x_history[i][j][k+1])[3:6] - np.array(x_history[i][j][k])[3:6], 2)), 0.5))
+                beta_change.append(np.sum(np.abs(np.array(x_history[i][j][k+1])[6:len(x_history[i][j][k])] - np.array(x_history[i][j][k])[6:len(x_history[i][j][k])]))/(opt[j].N+1))
             if len(x_history[i][j][k]) == 7*(1+opt[j].N):
-                r_change.append(np.sum(np.power(np.array(x_history[i][j][k+1])[0:3] - np.array(x_history[i][j][k])[0:3], 2))/(3*(opt[j].N +1)))
-                v_change.append(np.sum(np.power(np.array(x_history[i][j][k+1])[3:6] - np.array(x_history[i][j][k])[3:6], 2))/(3*(opt[j].N +1)))
-                beta_change.append(np.sum(np.power(np.array(x_history[i][j][k+1])[6] - np.array(x_history[i][j][k])[6], 2))/(opt[j].N +1))
+                r_change.append(np.power(np.sum(np.power(np.array(x_history[i][j][k+1])[0:3] - np.array(x_history[i][j][k])[0:3], 2)), 0.5)/((opt[j].N +1)))
+                v_change.append(np.power(np.sum(np.power(np.array(x_history[i][j][k+1])[3:6] - np.array(x_history[i][j][k])[3:6], 2)), 0.5)/((opt[j].N +1)))
+                beta_change.append(np.sum(np.abs(np.array(x_history[i][j][k+1])[6] - np.array(x_history[i][j][k])[6]))/(opt[j].N +1))
                 for n in range(1, opt[j].N):
-                    r_change[len(r_change)-1] = r_change[len(r_change)-1] + np.sum(np.power(np.array(x_history[i][j][k+1])[n*7:n*7+3] - np.array(x_history[i][j][k])[n*7:n*7+3], 2))/(3*(opt[j].N +1))
-                    v_change[len(r_change)-1] = v_change[len(r_change)-1] + np.sum(np.power(np.array(x_history[i][j][k+1])[n*7+3:n*7+6] - np.array(x_history[i][j][k])[n*7+3:n*7+6], 2))/(3*(opt[j].N +1))
-                    beta_change[len(r_change)-1] = beta_change[len(r_change)-1] + np.sum(np.power(np.array(x_history[i][j][k+1])[n*7+6] - np.array(x_history[i][j][k])[n*7+6], 2))/(opt[j].N +1)
+                    r_change[len(r_change)-1] = r_change[len(r_change)-1] + np.power(np.sum(np.power(np.array(x_history[i][j][k+1])[n*7:n*7+3] - np.array(x_history[i][j][k])[n*7:n*7+3], 2)), 0.5)/((opt[j].N +1))
+                    v_change[len(r_change)-1] = v_change[len(r_change)-1] + np.power(np.sum(np.power(np.array(x_history[i][j][k+1])[n*7+3:n*7+6] - np.array(x_history[i][j][k])[n*7+3:n*7+6], 2)), 0.5)/((opt[j].N +1))
+                    beta_change[len(r_change)-1] = beta_change[len(r_change)-1] + np.sum(np.abs(np.array(x_history[i][j][k+1])[n*7+6] - np.array(x_history[i][j][k])[n*7+6]))/(opt[j].N +1)
+
         # for l in range(len(r_change)):
         #     if r_change[l] == 0:
         #         r_change[l] = r_change[l-1]
