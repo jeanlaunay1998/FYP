@@ -25,13 +25,13 @@ class total_ballistic:
         self.beta_apriori = self.m.beta
 
         self.mu1 = 1
-        self.mu2 = model_pen[6]
         self.matrixR = []
 
         self.reg1 = LA.inv(np.array([[50, 0, 0], [0, (1e-3), 0], [0, 0, (1e-3)]]))
         if Q == [] :
             self.R_mu = np.identity(7)
             for i in range(7): self.R_mu[i, i] = model_pen[i]
+            self.mu2 = model_pen[6]
         else:
             self.R_mu = LA.inv(np.power(Q, 0.5))
             self.mu2 = self.R_mu[6,6]
@@ -46,8 +46,8 @@ class total_ballistic:
     def estimator_initilisation(self, step, y_measured):
         if step == self.N+1:
             self.y = np.array(y_measured)[step - self.N - 1:step, :]
-            self.vars[0:3] = np.copy(self.m.Sk[len(self.m.Sk)-1-self.N*self.inter_steps][0])
-            self.vars[3:6] = np.copy(self.m.Sk[len(self.m.Sk)-1-self.N*self.inter_steps][1])
+            self.vars[0:3] = np.copy(self.m.Sk[step-1-self.N*self.inter_steps][0])
+            self.vars[3:6] = np.copy(self.m.Sk[step-1-self.N*self.inter_steps][1])
             self.vars[6] = self.m.beta
             for i in range(self.N): self.vars[i+7] = self.m.beta
             self.x_apriori = self.vars[0:7]
@@ -356,21 +356,21 @@ class total_ballistic:
         H[6+self.N, 6+self.N] = H[6+self.N, 6+self.N] + 2*self.mu2
 
         # checking method
-        for l in range(len(x)):
-            eps = 0.1
-
-            plus_eps = np.copy(x)
-            plus_eps[l] = plus_eps[l]+eps
-            minus_eps = np.copy(x)
-            minus_eps[l] = minus_eps[l] - eps
-
-            A = self.gradient(plus_eps)
-            B = self.gradient(minus_eps)
-            derivative = (A-B)/(2*eps)
-            # H[l, :] = derivative
-            print(l, ': max diff (%): ', 100*np.amax(np.abs(np.divide(H[l,: ] - derivative, H[l,: ], out=np.zeros_like(H[l,: ]), where=H[l,: ]!=0))))
-            print('----')
-        sys.exit()
+        # for l in range(len(x)):
+        #     eps = 0.1
+        #
+        #     plus_eps = np.copy(x)
+        #     plus_eps[l] = plus_eps[l]+eps
+        #     minus_eps = np.copy(x)
+        #     minus_eps[l] = minus_eps[l] - eps
+        #
+        #     A = self.gradient(plus_eps)
+        #     B = self.gradient(minus_eps)
+        #     derivative = (A-B)/(2*eps)
+        #     # H[l, :] = derivative
+        #     print(l, ': max diff (%): ', 100*np.amax(np.abs(np.divide(H[l,: ] - derivative, H[l,: ], out=np.zeros_like(H[l,: ]), where=H[l,: ]!=0))))
+        #     print('----')
+        # sys.exit()
         return H
 
     def last_state(self):

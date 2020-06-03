@@ -80,7 +80,8 @@ class Memory:
         method = ['Newton LS', 'BFGS']
         for i in range(self.size):
             # labelstring.append('MHE N =' + str(self.N[i]))
-            labelstring.append('MHE with ' + method[i])
+            # labelstring.append('MHE with ' + method[i])
+            labelstring.append('MHE with ' + self.MHE[i])
 
         # transform to seu coordinates
         real = np.array(real_x)
@@ -226,6 +227,7 @@ class Memory:
         fig.legend(handles, labels, loc='upper center',  ncol=4)
 
         # Analyse data
+        return_array = []
         p_av_rel_error_UKF = []
         p_av_error_UKF = []
         beta_av_error_UKF = []
@@ -256,15 +258,17 @@ class Memory:
         beta_av_error_UKF.append(np.sum(np.abs(EKF_states[self.N[0]:len(UKF_states), 6] - real_beta[self.N[0]:len(real_beta)]))/len(UKF_states))
 
 
-        print("Extended Kalman filter average relative error ; Average root square error:  ")
-        print("     - Position: ", p_av_rel_error_EKF, '  ;  ', p_av_error_EKF)
-        print("     - Velocity: ", v_av_rel_error_EKF,  '  ;  ', v_av_error_EKF)
-        print("     - Ballistic coefficient: ", beta_av_error_EKF)
+        # print("Extended Kalman filter average relative error ; Average root square error:  ")
+        # print("     - Position: ", p_av_rel_error_EKF, '  ;  ', p_av_error_EKF)
+        # print("     - Velocity: ", v_av_rel_error_EKF,  '  ;  ', v_av_error_EKF)
+        # print("     - Ballistic coefficient: ", beta_av_error_EKF)
 
-        print("Unscented Kalman filter average relative error ; Average root square error:  ")
-        print("     - Position: ", p_av_rel_error_UKF, '  ;  ', p_av_error_UKF)
-        print("     - Velocity: ", v_av_rel_error_UKF, '  ;  ', v_av_error_UKF)
-        print("     - Ballistic coefficient: ", beta_av_error_UKF)
+        return_array.append([p_av_error_EKF, v_av_error_EKF, beta_av_error_EKF])
+        # print("Unscented Kalman filter average relative error ; Average root square error:  ")
+        # print("     - Position: ", p_av_rel_error_UKF, '  ;  ', p_av_error_UKF)
+        # print("     - Velocity: ", v_av_rel_error_UKF, '  ;  ', v_av_error_UKF)
+        # print("     - Ballistic coefficient: ", beta_av_error_UKF)
+        return_array.append([p_av_error_UKF, v_av_error_UKF, beta_av_error_UKF])
 
         for i in range(self.size):
             p_av_rel_MHE = []
@@ -280,13 +284,16 @@ class Memory:
                                                             out=np.zeros_like(real[self.N[i]:len(Sk), 1, j]), where=real[self.N[i]:len(Sk), 1, j]!=0)))/len(self.states[i]))
                 v_av_MHE.append(np.sum(np.abs(self.states[i][:, self.N[i], j+3] - real[self.N[i]:len(Sk), 1, j]))/len(self.states[i]))
             beta_av_MHE.append(np.sum(np.abs(self.states[i][:, self.N[i], 6] - real_beta[self.N[i]:len(real_beta)]))/len(self.states[i]))
-            print(labelstring[i], 'average relative error ; Average root square error:  ')
-            print("     - Position: ", p_av_rel_MHE, '  ;  ', p_av_MHE)
-            print("     - Velocity: ", v_av_rel_MHE, '  ;  ', v_av_MHE)
-            print("     - Ballistic coefficient: ", beta_av_MHE)
+            # print(labelstring[i], 'average relative error ; Average root square error:  ')
+            # print("     - Position: ", p_av_rel_MHE, '  ;  ', p_av_MHE)
+            # print("     - Velocity: ", v_av_rel_MHE, '  ;  ', v_av_MHE)
+            # print("     - Ballistic coefficient: ", beta_av_MHE)
+            return_array.append([p_av_MHE, v_av_MHE, beta_av_MHE])
 
         labelstring[i]
-        plt.show()
+
+        # plt.show()
+        return return_array
 
 
 

@@ -134,7 +134,7 @@ class dynamics:
 
     def acceleration(self, v, r):
         acc = -np.multiply((self.G*self.M)/pow(LA.norm(r), 3), r) - np.multiply(self.density_h(r)*LA.norm(v)/(2*self.ballistic_coef(v, r)), v)
-        self.a_res = np.random.normal(0, pow(0.01 * LA.norm(acc), 2), size=1)
+        self.a_res = np.random.normal(0, pow(0.075 * LA.norm(acc), 2), size=1)
         return list(acc + self.a_res)
 
     def dx(self, v, r):
@@ -142,7 +142,6 @@ class dynamics:
 
     def step_update(self, v, r):
         self.delta_o = np.random.normal(0, pow(0.01 * self.beta_o, 2), size=1)
-        self.a_res = 0  # np.random.normal(0, pow(0.01 * LA.norm(d.a), 2), size=1)
 
         K1 = np.multiply(self.delta_t, self.dx(v, r))
         K2 = np.multiply(self.delta_t, self.dx(v+K1[0, :]/2, r+K1[1, :]/2))

@@ -46,8 +46,8 @@ class MHE_regularisation:
     def estimator_initilisation(self, step, y_measured):
         if step == self.N+1:
             self.y = np.array(y_measured)[step - self.N - 1:step, :]
-            self.vars[0:3] = np.copy(self.m.Sk[len(self.m.Sk)-1-self.N*self.inter_steps][0])
-            self.vars[3:6] = np.copy(self.m.Sk[len(self.m.Sk)-1-self.N*self.inter_steps][1])
+            self.vars[0:3] = np.copy(self.m.Sk[step-1-self.N*self.inter_steps][0])
+            self.vars[3:6] = np.copy(self.m.Sk[step-1-self.N*self.inter_steps][1])
             self.vars[6] = self.m.beta
             self.x_apriori = self.vars
             self.beta = self.m.beta  # Initial guess from model

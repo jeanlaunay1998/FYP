@@ -48,8 +48,8 @@ class MS_MHE_PE:
 
         # first point is given by the model
         x0 = np.zeros(7)
-        x0[0:3] = np.copy(self.m.Sk[len(self.m.Sk) - (1 + self.N)*self.inter_steps][0][0:3])
-        x0[3:6] = np.copy(self.m.Sk[len(self.m.Sk) - (1 + self.N)*self.inter_steps][1][0:3])
+        x0[0:3] = np.copy(self.m.Sk[step - (1 + self.N)*self.inter_steps][0][0:3])
+        x0[3:6] = np.copy(self.m.Sk[step - (1 + self.N)*self.inter_steps][1][0:3])
         x0[6] = self.m.beta
 
         self.ekf.x = x0

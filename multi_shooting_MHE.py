@@ -28,12 +28,9 @@ class multishooting:
         self.measurement_pen = pen1
         self.model_pen = pen2
 
-        self.reg1 = LA.inv(np.array([[50, 0, 0], [0, (1e-3), 0], [0, 0, (1e-3)]])) # np.power(LA.inv(self.R),0.5) # np.zeros(3)  # distance, azimuth, elevation
-        # self.reg1 = np.identity(3)
-        # for i in range(3):
-        #     self.reg1[i,i] = self.measurement_pen[i]
+        self.reg1 = LA.inv(np.array([[50, 0, 0], [0, (1e-3), 0], [0, 0, (1e-3)]]))
 
-        self.reg2 = np.identity(7)
+        # self.reg2 = np.identity(7)
         self.reg2 = LA.inv(np.power(self.Q, 0.5))  # np.zeros(7)  # position, velocity and ballistic coeff
         # self.reg2[6,6] = 0.1*self.reg2[6,6]
         # for i in range(7):
@@ -49,9 +46,9 @@ class multishooting:
         self.y = np.array(y_measured)[step - self.N - 1:step, :]
         for i in range(0, self.N+1):
             for j in range(3):
-                self.vars[i*7+j] = np.copy(self.m.Sk[len(self.m.Sk)-(1+self.N)*self.inter_steps + i][0][j])
+                self.vars[i*7+j] = np.copy(self.m.Sk[step-(1+self.N)*self.inter_steps + i][0][j])
             for j in range(3,6):
-                self.vars[i * 7 + j] = np.copy(self.m.Sk[len(self.m.Sk) - (1 + self.N) * self.inter_steps + i][1][j-3])
+                self.vars[i * 7 + j] = np.copy(self.m.Sk[step- (1 + self.N) * self.inter_steps + i][1][j-3])
             self.vars[i*7 + 6] = self.m.beta
         self.x_prior = self.vars[0:7]
 
