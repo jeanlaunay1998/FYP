@@ -110,7 +110,6 @@ for i in range(len(N)):
         print('Optimization type not recognize')
         sys.exit()
 
-
 memory = Memory(o, N, len(N))
 
 # unscented kalman filter

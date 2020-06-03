@@ -79,13 +79,9 @@ class MHE_regularisation:
             hess = self.hessian(self.vars)
             x_0 = self.vars
             if self.method == 'BFGS':
-                print(self.cost(self.vars))
                 self.vars = BFGS(self.vars, hess, self.cost, self.gradient, self.N)
-                print(self.cost(self.vars))
             elif self.method == 'Newton LS':
-                print(self.cost(self.vars))
                 self.vars = newton_iter_selection(self.vars, self.gradient, self.hessian, self.N, self.cost, 'on')
-                print(self.cost(self.vars))
             elif self.method == 'Newton':
                 for i in range(15):
                     self.vars = newton_iter_selection(self.vars, grad, hess, self.N, self.cost, 'off')
@@ -99,7 +95,7 @@ class MHE_regularisation:
                 result = minimize(fun=self.cost, x0=self.vars, method='trust-ncg', jac=self.gradient, hess=self.hessian, options={'maxiter': 50})
                 self.vars = result.x
             else:
-                print('Optimization method ' + self.method + ' non recognize')
+                print('Optimization method ' + self.method + ' not recognize')
             if any(self.vars == x_0):
                 print('opt failed')
                 self.vars = np.zeros(len(self.vars))

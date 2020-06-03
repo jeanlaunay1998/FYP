@@ -83,13 +83,9 @@ class total_ballistic:
             hess = self.hessian(self.vars)
             x_0 = self.vars
             if self.method == 'BFGS':
-                print(self.cost(self.vars))
                 self.vars = BFGS(self.vars, hess, self.cost, self.gradient, self.N)
-                print(self.cost(self.vars))
             elif self.method == 'Newton LS':
-                print(self.cost(self.vars))
                 self.vars = newton_iter_selection(self.vars, self.gradient, self.hessian, self.N, self.cost, 'on')
-                print(self.cost(self.vars))
             elif self.method == 'Newton':
                 for i in range(15):
                     self.vars = newton_iter_selection(self.vars, grad, hess, self.N, self.cost, 'off')
