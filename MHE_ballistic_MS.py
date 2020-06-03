@@ -289,22 +289,22 @@ class total_ballistic:
         grad[6+self.N] = grad[6+self.N] + self.mu2 * (x[6+self.N] - x[5+ self.N])
         # checking method
         # for l in range(len(x)):
-        #     if (l//7)%2 == 0:
-        #         eps = 0.1
-        #         plus_eps = np.copy(x)
-        #         plus_eps[l] = plus_eps[l]+eps
-        #         minus_eps = np.copy(x)
-        #         minus_eps[l] = minus_eps[l] - eps
+        #     # if (l//7)%2 == 0:
+        #     eps = 0.1
+        #     plus_eps = np.copy(x)
+        #     plus_eps[l] = plus_eps[l]+eps
+        #     minus_eps = np.copy(x)
+        #     minus_eps[l] = minus_eps[l] - eps
         #
-        #         A = self.cost(plus_eps)
-        #         print('--')
-        #         B = self.cost(minus_eps)
-        #         # print(A)
-        #         # print(B)
-        #         derivative = (A-B)/(2*eps)
-        #         print(l, ': diff (%): ', 100*np.abs(np.divide(grad[l]-derivative, grad[l], out=np.zeros_like(grad[l]), where=grad[l]!=0)))
-        #         # print(l, ': diff (%): ', 100*np.abs(np.divide(grad[l]-derivative, derivative, out=np.zeros_like(derivative), where=derivative!=0)))
-        #         print('  analytical: ', grad[l], '; numerical: ', derivative)
+        #     A = self.cost(plus_eps)
+        #     print('--')
+        #     B = self.cost(minus_eps)
+        #     # print(A)
+        #     # print(B)
+        #     derivative = (A-B)/(2*eps)
+        #     print(l, ': diff (%): ', 100*np.abs(np.divide(grad[l]-derivative, grad[l], out=np.zeros_like(grad[l]), where=grad[l]!=0)))
+        #     # print(l, ': diff (%): ', 100*np.abs(np.divide(grad[l]-derivative, derivative, out=np.zeros_like(derivative), where=derivative!=0)))
+        #     print('  analytical: ', grad[l], '; numerical: ', derivative)
         # sys.exit()
         return grad
 
@@ -360,22 +360,21 @@ class total_ballistic:
         H[6+self.N, 6+self.N] = H[6+self.N, 6+self.N] + 2*self.mu2
 
         # checking method
-        # for l in range(len(x)):
-        #     if (l // 7) % 2 == 0:
-        #         eps = 0.1
-        #
-        #         plus_eps = np.copy(x)
-        #         plus_eps[l] = plus_eps[l]+eps
-        #         minus_eps = np.copy(x)
-        #         minus_eps[l] = minus_eps[l] - eps
-        #
-        #         A = self.gradient(plus_eps)
-        #         B = self.gradient(minus_eps)
-        #         derivative = (A-B)/(2*eps)
-        #         # H[l, :] = derivative
-        #         print(l, ': max diff (%): ', 100*np.amax(np.abs(np.divide(H[l,: ] - derivative, H[l,: ], out=np.zeros_like(H[l,: ]), where=H[l,: ]!=0))))
-        #         print('----')
-        # sys.exit()
+        for l in range(len(x)):
+            eps = 0.1
+
+            plus_eps = np.copy(x)
+            plus_eps[l] = plus_eps[l]+eps
+            minus_eps = np.copy(x)
+            minus_eps[l] = minus_eps[l] - eps
+
+            A = self.gradient(plus_eps)
+            B = self.gradient(minus_eps)
+            derivative = (A-B)/(2*eps)
+            # H[l, :] = derivative
+            print(l, ': max diff (%): ', 100*np.amax(np.abs(np.divide(H[l,: ] - derivative, H[l,: ], out=np.zeros_like(H[l,: ]), where=H[l,: ]!=0))))
+            print('----')
+        sys.exit()
         return H
 
     def last_state(self):

@@ -4,7 +4,7 @@ import seaborn as sns
 import sys
 
 class Memory:
-    def __init__(self, observer, N, estimator_number):
+    def __init__(self, observer, N, estimator_number, MHE_type=[]):
         self.N = N
         self.o = observer
         self.y_model = []
@@ -17,6 +17,7 @@ class Memory:
             self.y_estimates.append([])
             self.cost.append([])
         self.size = estimator_number
+        self.MHE = MHE_type
 
     def save_data(self, time, vars, y_model, cost, number):
         ys = []
@@ -91,7 +92,8 @@ class Memory:
         plt.plot(self.t, UKF_states[self.N[0]:len(UKF_states), 6], 'b', label='Unscented Kalman filter')
         plt.plot(self.t, EKF_states[self.N[0]:len(EKF_states), 6], 'r', label='Extended Kalman filter')
         for i in range(self.size):
-            plt.plot(self.t[self.N[i]-self.N[0]:len(self.t)], self.states[i][:, self.N[i], 6], '-', label=labelstring[i])
+            plt.plot(self.t[self.N[i]-self.N[0]:len(self.t)], self.states[i][:, self.N[i], 6], '--', label=labelstring[i])
+        plt.ylim([0,1000])
         plt.legend(loc='best')
         plt.xlabel('Time (s)')
         plt.ylabel('Ballistic Coefficient')
@@ -123,13 +125,13 @@ class Memory:
 
         lim = [0.5, 5, 30]
         for i in range(self.size):
-            ax[0, 0].plot(self.t[self.N[i]-self.N[0]:len(self.t)], np.array(self.y_estimates[i])[:, self.N[i], 0], '-')
-            ax[1, 0].plot(self.t[self.N[i]-self.N[0]:len(self.t)], np.array(self.y_estimates[i])[:, self.N[i], 1], '-')
-            ax[2, 0].plot(self.t[self.N[i]-self.N[0]:len(self.t)], np.array(self.y_estimates[i])[:, self.N[i], 2], '-', label=labelstring[i])
+            ax[0, 0].plot(self.t[self.N[i]-self.N[0]:len(self.t)], np.array(self.y_estimates[i])[:, self.N[i], 0], '--')
+            ax[1, 0].plot(self.t[self.N[i]-self.N[0]:len(self.t)], np.array(self.y_estimates[i])[:, self.N[i], 1], '--')
+            ax[2, 0].plot(self.t[self.N[i]-self.N[0]:len(self.t)], np.array(self.y_estimates[i])[:, self.N[i], 2], '--', label=labelstring[i])
             for j in range(3):
                 y = 100*np.abs(np.divide(np.array(self.y_estimates[i])[:, self.N[i], j]-np.array(y_real)[self.N[i]:len(y_real), j], np.array(y_real)[self.N[i]:len(y_real), j], \
                                          out=np.array(y_real)[self.N[i]:len(y_real), j], where=np.array(y_real)[self.N[i]:len(y_real), j]!=0))
-                ax[j, 1].plot(self.t[self.N[i]-self.N[0]:len(self.t)], y, '-')
+                ax[j, 1].plot(self.t[self.N[i]-self.N[0]:len(self.t)], y, '--')
 
                 ax[j, 0].set_ylim([np.amin(np.array(y_real)[self.N[0]:len(y_real), j]) - 0.1*np.abs(np.amin(np.array(y_real)[self.N[0]:len(y_real), j])), \
                                    np.amax(np.array(y_real)[self.N[0]:len(y_real), j]) + 0.1*np.abs(np.amax(np.array(y_real)[self.N[0]:len(y_real), j]))])
@@ -166,13 +168,13 @@ class Memory:
             ax[j, 1].plot(self.t, 100 * y, '-r')
 
         for i in range(self.size):
-            ax[0, 0].plot(self.t[self.N[i]-self.N[0]:len(self.t)], self.states[i][:, self.N[i], 0], '-')
-            ax[1, 0].plot(self.t[self.N[i]-self.N[0]:len(self.t)], self.states[i][:, self.N[i], 1], '-')
-            ax[2, 0].plot(self.t[self.N[i]-self.N[0]:len(self.t)], self.states[i][:, self.N[i], 2], '-', label=labelstring[i])
+            ax[0, 0].plot(self.t[self.N[i]-self.N[0]:len(self.t)], self.states[i][:, self.N[i], 0], '--')
+            ax[1, 0].plot(self.t[self.N[i]-self.N[0]:len(self.t)], self.states[i][:, self.N[i], 1], '--')
+            ax[2, 0].plot(self.t[self.N[i]-self.N[0]:len(self.t)], self.states[i][:, self.N[i], 2], '--', label=labelstring[i])
             for j in range(3):
                 y = np.abs(np.divide(self.states[i][:, self.N[i], j] - real[self.N[i]:len(Sk), 0, j],  real[self.N[i]:len(Sk), 0, j], \
                                      out=np.zeros_like(real[self.N[i]:len(Sk), 0, j]), where=real[self.N[i]:len(Sk), 0, j]!=0))
-                ax[j, 1].plot(self.t[self.N[i]-self.N[0]:len(self.t)], 100 * y, '-')
+                ax[j, 1].plot(self.t[self.N[i]-self.N[0]:len(self.t)], 100 * y, '--')
                 ax[j, 1].set_ylim([0, lim[i]])
                 ax[j, 0].set_ylim([np.amin(real[self.N[0]:len(Sk), 0, j]) - 0.1*np.abs(np.amin(real[self.N[0]:len(Sk), 0, j])), \
                                    np.amax(real[self.N[0]:len(Sk), 0, j]) + 0.1*np.abs(np.amax(real[self.N[0]:len(Sk), 0, j]))])
@@ -207,13 +209,13 @@ class Memory:
             ax[j, 1].plot(self.t, 100 * y, '-r')
 
         for i in range(self.size):
-            ax[0, 0].plot(self.t[self.N[i]-self.N[0]:len(self.t)], self.states[i][:, self.N[i], 3], '-')
-            ax[1, 0].plot(self.t[self.N[i]-self.N[0]:len(self.t)], self.states[i][:, self.N[i], 4], '-')
-            ax[2, 0].plot(self.t[self.N[i]-self.N[0]:len(self.t)], self.states[i][:, self.N[i], 5], '-', label=labelstring[i])
+            ax[0, 0].plot(self.t[self.N[i]-self.N[0]:len(self.t)], self.states[i][:, self.N[i], 3], '--')
+            ax[1, 0].plot(self.t[self.N[i]-self.N[0]:len(self.t)], self.states[i][:, self.N[i], 4], '--')
+            ax[2, 0].plot(self.t[self.N[i]-self.N[0]:len(self.t)], self.states[i][:, self.N[i], 5], '--', label=labelstring[i])
             for j in range(3):
                 y = np.abs(np.divide(self.states[i][:, self.N[i], j+3] - real[self.N[i]:len(Sk), 1, j],  real[self.N[i]:len(Sk), 1, j], \
                                      out=np.zeros_like(real[self.N[i]:len(Sk), 1, j]), where=real[self.N[i]:len(Sk), 1, j]!=0))
-                ax[j, 1].plot(self.t[self.N[i]-self.N[0]:len(self.t)], 100 * y, '-')
+                ax[j, 1].plot(self.t[self.N[i]-self.N[0]:len(self.t)], 100 * y, '--')
 
                 ax[j, 1].set_ylim([0, 30])
                 ax[j, 0].set_ylim([np.amin(real[self.N[0]:len(Sk), 1, j]) - 0.1*np.abs(np.amin(real[self.N[0]:len(Sk), 1, j])), \
