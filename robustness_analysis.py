@@ -308,7 +308,7 @@ for j in range(3):
     for i in range(len(error)):
         y_plot.append(balreg_error[i][0][j])
     ax[j].plot(error, y_plot, '--b', label='Multi-shooting MHE')
-handles, labels = ax[2, 0].get_legend_handles_labels()
+handles, labels = ax[0].get_legend_handles_labels()
 fig.legend(handles, labels, loc='upper center', ncol=4)
 fig, ax = plt.subplots(3,1)
 for j in range(3):
@@ -331,7 +331,7 @@ for j in range(3):
     for i in range(len(error)):
         y_plot.append(balreg_error[i][1][j])
     ax[j].plot(error, y_plot, '--b', label='Multi-shooting MHE')
-handles, labels = ax[2, 0].get_legend_handles_labels()
+handles, labels = ax[0].get_legend_handles_labels()
 fig.legend(handles, labels, loc='upper center', ncol=4)
 plt.figure()
 for j in range(1):
