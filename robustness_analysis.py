@@ -16,6 +16,7 @@ from MS_MHE_PE import MS_MHE_PE
 from memory import Memory
 import pandas as pd
 import matplotlib.pyplot as plt
+from matplotlib import rc
 import seaborn as sns
 
 
@@ -34,10 +35,10 @@ m = model(d.r, d.v, initialbeta, measurement_lapse)
 
 
 # covariance matrices initialise with the ideal case
-R = np.array([[200**2, 0, 0], [0, (4e-3)**2, 0], [0, 0, (4e-3)**2]]) # Measurement covariance matrix
+R = np.array([[100**2, 0, 0], [0, (1e-3)**2, 0], [0, 0, (1e-3)**2]]) # Measurement covariance matrix
 P0 = np.zeros((7,7))  # Initial covariance matrix
 Q = np.zeros((7,7))  # Process noise covariance matrix
-qa = 2 #  Estimated deviation of acceleration between real state and approximated state
+qa = 0.75 #  Estimated deviation of acceleration between real state and approximated state
 for i in range(3):
     P0[i,i] = 500**2
     P0[i+3, i+3] = 1000**2
@@ -131,6 +132,7 @@ print(process_covariance)
 
 
 # sns.set()
+#
 # theoretical_r = np.random.normal(0, Q[0,0]**0.5, size=50000)
 # theoretical_v = np.random.normal(0, Q[3,3]**0.5, size=50000)
 # theoretical_beta = np.random.normal(0, Q[6,6]**0.5, size=50000)
@@ -165,6 +167,7 @@ print(process_covariance)
 # axes[2].legend([r"$\beta$"]);
 # plt.subplots_adjust(left=0.05, right=0.97, top=0.75, bottom=0.25)
 # plt.show()
+# sys.exit()
 
 
 
@@ -288,71 +291,111 @@ print(total_reg)
 print(multi_reg)
 
 fig, ax = plt.subplots(3,1)
+
 for j in range(3):
     y_plot = []
     for i in range(len(error)):
-        y_plot.append(ekf_errors[i][0][j])
-    ax[j].plot(error, y_plot,'r', label='EKF')
+        y_plot.append(np.sum(np.power(ekf_errors[i][j], 2))**0.5)
+    ax[j].plot(np.multiply(error, 100), y_plot,'r', label='EKF')
 
     y_plot = []
     for i in range(len(error)):
-        y_plot.append(ukf_errors[i][0][j])
-    ax[j].plot(error, y_plot, '--r', label='UKF')
+        y_plot.append(np.sum(np.power(ukf_errors[i][j], 2))**0.5)
+    ax[j].plot(np.multiply(error, 100), y_plot, '--r', label='UKF')
 
     y_plot = []
     for i in range(len(error)):
-        y_plot.append(multi_reg[i][0][j])
-    ax[j].plot(error, y_plot, 'b', label='Ballistic reg MHE')
+        y_plot.append(np.sum(np.power(multi_reg[i][j], 2)) ** 0.5)
+    ax[j].plot(np.multiply(error, 100), y_plot, 'b', label='Ballistic reg MHE')
 
     y_plot = []
     for i in range(len(error)):
-        y_plot.append(balreg_error[i][0][j])
-    ax[j].plot(error, y_plot, '--b', label='Multi-shooting MHE')
+        y_plot.append(np.sum(np.power(balreg_error[i][j], 2)) ** 0.5)
+    ax[j].plot(np.multiply(error, 100), y_plot, '--b', label='Multi-shooting MHE')
+
+plot_type = [r"$||r - \hat{r}||$", r"$||v - \hat{v}||$", r"$||\beta - \hat{\beta}||$" ]
+i = 0
+for axs in ax.flat:
+    axs.set(xlabel=r"$e_{R} \; (\%)$", ylabel=plot_type[i])
+    i = i +1
+for axs in ax.flat:
+    axs.label_outer()
 handles, labels = ax[0].get_legend_handles_labels()
 fig.legend(handles, labels, loc='upper center', ncol=4)
-fig, ax = plt.subplots(3,1)
-for j in range(3):
-    y_plot = []
-    for i in range(len(error)):
-        y_plot.append(ekf_errors[i][1][j])
-    ax[j].plot(error, y_plot, 'r', label='EKF')
 
-    y_plot = []
-    for i in range(len(error)):
-        y_plot.append(ukf_errors[i][1][j])
-    ax[j].plot(error, y_plot, '--r', label='UKF')
 
-    y_plot = []
-    for i in range(len(error)):
-        y_plot.append(multi_reg[i][1][j])
-    ax[j].plot(error, y_plot, 'b', label='Ballistic reg MHE')
+# ax[0].set(xlabel=r"$e_{R} \; (\%)$", ylabel=r"$||r - \hat{r}||")
+# ax[1].set(xlabel=r"$e_{R} \; (\%)$", ylabel=r"$||v - \hat{v}||")
+# ax[2].set(xlabel=r"$e_{R} \; (\%)$", ylabel=r"$||\beta - \hat{\beta}||")
 
-    y_plot = []
-    for i in range(len(error)):
-        y_plot.append(balreg_error[i][1][j])
-    ax[j].plot(error, y_plot, '--b', label='Multi-shooting MHE')
-handles, labels = ax[0].get_legend_handles_labels()
-fig.legend(handles, labels, loc='upper center', ncol=4)
-plt.figure()
-for j in range(1):
-    y_plot = []
-    for i in range(len(error)):
-        y_plot.append(ekf_errors[i][2][j])
-    plt.plot(error, y_plot,'r', label='EKF')
-
-    y_plot = []
-    for i in range(len(error)):
-        y_plot.append(ukf_errors[i][2][j])
-    plt.plot(error, y_plot,'--r', label='UKF')
-
-    y_plot = []
-    for i in range(len(error)):
-        y_plot.append(multi_reg[i][2][j])
-    plt.plot(error, y_plot, 'b', label='Ballistic reg MHE')
-
-    y_plot = []
-    for i in range(len(error)):
-        y_plot.append(balreg_error[i][1][j])
-    plt.plot(error, y_plot, '--b', label='Multi-shooting MHE')
-plt.legend(loc='best')
+# fig, ax = plt.subplots(3,1)
+# for j in range(3):
+#     y_plot = []
+#     for i in range(len(error)):
+#         y_plot.append(ekf_errors[i][0][j])
+#     ax[j].plot(error, y_plot,'r', label='EKF')
+#
+#     y_plot = []
+#     for i in range(len(error)):
+#         y_plot.append(ukf_errors[i][0][j])
+#     ax[j].plot(error, y_plot, '--r', label='UKF')
+#
+#     y_plot = []
+#     for i in range(len(error)):
+#         y_plot.append(multi_reg[i][0][j])
+#     ax[j].plot(error, y_plot, 'b', label='Ballistic reg MHE')
+#
+#     y_plot = []
+#     for i in range(len(error)):
+#         y_plot.append(balreg_error[i][0][j])
+#     ax[j].plot(error, y_plot, '--b', label='Multi-shooting MHE')
+# handles, labels = ax[0].get_legend_handles_labels()
+# fig.legend(handles, labels, loc='upper center', ncol=4)
+#
+#
+# fig, ax = plt.subplots(3,1)
+# for j in range(3):
+#     y_plot = []
+#     for i in range(len(error)):
+#         y_plot.append(ekf_errors[i][1][j])
+#     ax[j].plot(error, y_plot, 'r', label='EKF')
+#
+#     y_plot = []
+#     for i in range(len(error)):
+#         y_plot.append(ukf_errors[i][1][j])
+#     ax[j].plot(error, y_plot, '--r', label='UKF')
+#
+#     y_plot = []
+#     for i in range(len(error)):
+#         y_plot.append(multi_reg[i][1][j])
+#     ax[j].plot(error, y_plot, 'b', label='Ballistic reg MHE')
+#
+#     y_plot = []
+#     for i in range(len(error)):
+#         y_plot.append(balreg_error[i][1][j])
+#     ax[j].plot(error, y_plot, '--b', label='Multi-shooting MHE')
+# handles, labels = ax[0].get_legend_handles_labels()
+# fig.legend(handles, labels, loc='upper center', ncol=4)
+# plt.figure()
+# for j in range(1):
+#     y_plot = []
+#     for i in range(len(error)):
+#         y_plot.append(ekf_errors[i][2][j])
+#     plt.plot(error, y_plot,'r', label='EKF')
+#
+#     y_plot = []
+#     for i in range(len(error)):
+#         y_plot.append(ukf_errors[i][2][j])
+#     plt.plot(error, y_plot,'--r', label='UKF')
+#
+#     y_plot = []
+#     for i in range(len(error)):
+#         y_plot.append(multi_reg[i][2][j])
+#     plt.plot(error, y_plot, 'b', label='Ballistic reg MHE')
+#
+#     y_plot = []
+#     for i in range(len(error)):
+#         y_plot.append(balreg_error[i][1][j])
+#     plt.plot(error, y_plot, '--b', label='Multi-shooting MHE')
+# plt.legend(loc='best')
 plt.show()
