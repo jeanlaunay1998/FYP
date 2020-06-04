@@ -205,9 +205,9 @@ for s in range(len(error)):
     arrival = [1, 1, 1]
     for i in range(len(N)):
         if MHE_type[i] == 'Total ballistic':
-            opt.append(total_ballistic(m, o, N[i], measurement_lapse, model_pen, method[i], Q))
+            opt.append(total_ballistic(m, o, N[i], measurement_lapse, model_pen, method[i], Q, R))
         elif MHE_type[i] == 'Ballistic reg':
-            opt.append(MHE_regularisation(m, o, N[i], measurement_lapse, model_pen, method[i], Q))
+            opt.append(MHE_regularisation(m, o, N[i], measurement_lapse, model_pen, method[i], Q, R))
         elif MHE_type[i] == 'Multi-shooting':
             opt.append(multishooting(m, d, o, N[i], measurement_lapse, measurement_pen, model_pen, Q, R, arrival[i], method[i]))
         elif MHE_type[i] == 'MS with PE':

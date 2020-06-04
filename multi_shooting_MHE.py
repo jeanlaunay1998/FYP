@@ -28,7 +28,10 @@ class multishooting:
         self.measurement_pen = pen1
         self.model_pen = pen2
 
-        self.reg1 = LA.inv(np.array([[50, 0, 0], [0, (1e-3), 0], [0, 0, (1e-3)]]))
+        if R == []:
+            self.reg1 = LA.inv(np.array([[50, 0, 0], [0, (1e-3), 0], [0, 0, (1e-3)]]))
+        else:
+            self.reg1 = LA.inv(np.power(R, 0.5))
 
         # self.reg2 = np.identity(7)
         self.reg2 = LA.inv(np.power(self.Q, 0.5))  # np.zeros(7)  # position, velocity and ballistic coeff

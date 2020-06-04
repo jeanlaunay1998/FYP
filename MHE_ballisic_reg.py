@@ -8,7 +8,7 @@ import sys
 
 
 class MHE_regularisation:
-    def __init__(self, model, observer, horizon_length, measurement_lapse, model_pen, opt_method = 'Gradient', Q=[]):
+    def __init__(self, model, observer, horizon_length, measurement_lapse, model_pen, opt_method = 'Gradient', Q=[], R=[]):
         self.m = model  # copy direction of model to access all function of the class
         self.o = observer  # copy direction of observer to access all function of the class
 
@@ -28,7 +28,11 @@ class MHE_regularisation:
         self.mu1 = 1
         self.matrixR = []
 
-        self.reg1 = LA.inv(np.array([[50, 0, 0], [0, (1e-3), 0], [0, 0, (1e-3)]]))
+        if R == []:
+            self.reg1 = LA.inv(np.array([[50, 0, 0], [0, (1e-3), 0], [0, 0, (1e-3)]]))
+        else:
+            self.reg1 = LA.inv(np.power(R, 0.5))
+
         if Q == [] :
             self.R_mu = np.identity(7)
             for i in range(7): self.R_mu[i, i] = model_pen[i]

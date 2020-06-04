@@ -28,7 +28,7 @@ from memory import Memory
 
 
 t_lim = 15
-N = [20, 20]  # size of the horizon
+N = [20]  # size of the horizon
 measurement_lapse = 0.5  # time lapse between every measurement
 
 t = 0.00
@@ -44,10 +44,10 @@ m = model(d.r, d.v, initialbeta, measurement_lapse)
 
 
 # covariance matrices
-R = np.array([[200**2, 0, 0], [0, (4e-3)**2, 0], [0, 0, (4e-3)**2]]) # Measurement covariance matrix
+R = np.array([[100**2, 0, 0], [0, (1e-3)**2, 0], [0, 0, (1e-3)**2]]) # Measurement covariance matrix
 P0 = np.zeros((7,7))  # Initial covariance matrix
 Q = np.zeros((7,7))  # Process noise covariance matrix
-qa = 1 #  Estimated deviation of acceleration between real state and approximated state
+qa = 0.75 #  Estimated deviation of acceleration between real state and approximated state
 
 for i in range(3):
     P0[i,i] = 500**2
@@ -60,32 +60,6 @@ for i in range(3):
 P0[6,6] = 20**2
 Q[6,6] = 60 # 100
 
-# Q = np.identity(7)
-# pene = np.abs([[ 2.09390488e-03, -1.77560607e-03, -7.63675550e-04,  1.09633625e-02,  -9.15272938e-03, -4.02669944e-03, -1.31882390e-01],
-#  [-1.77560607e-03,  1.09633338e-02,  4.87851377e-03, -9.35652322e-03,   5.93382309e-02,  2.64246871e-02,  8.04974770e-01],
-#  [-7.63675550e-04,  4.87851377e-03,  2.18517774e-03, -4.07387896e-03,   2.63624201e-02,  1.17896652e-02,  3.57294370e-01],
-#  [ 1.09633625e-02, -9.35652322e-03, -4.07387896e-03,  5.87343324e-02,  -5.05681135e-02, -2.24076443e-02, -7.56382709e-01],
-#  [-9.15272938e-03,  5.93382309e-02,  2.63624201e-02, -5.05681135e-02,   3.28234195e-01,  1.46198663e-01,  4.51309319e+00],
-#  [-4.02669944e-03,  2.64246871e-02,  1.17896652e-02, -2.24076443e-02,   1.46198663e-01,  6.53348976e-02,  2.00775251e+00],
-#  [-1.31882390e-01,  8.04974770e-01,  3.57294370e-01, -7.56382709e-01,   4.51309319e+00,  2.00775251e+00,  1.30206783e+02]])
-#
-# Q[0,0] = (pene[0,0] + pene[1,1] + pene[2,2])/3
-# Q[1,1] =Q[0,0]
-# Q[2,2] =Q[0,0]
-#
-# Q[3,3] = (pene[3,3] + pene[4,4] + pene[5,5])/3
-# Q[4,4] =Q[3,3]
-# Q[5,5] =Q[3,3]
-#
-# Q[0,3] = (pene[0,3]+pene[1,4]+pene[2,5])/3
-# Q[1,4] =Q[0,3]
-# Q[2,5] =Q[0,3]
-#
-# Q[3,0] = (pene[3,0]+pene[4, 1]+pene[5, 2])/3
-# Q[4,1] =Q[3,0]
-# Q[5,2] =Q[3,0]
-#
-# Q[6, 6] = pene[6, 6]
 
 # Initialisation of estimators
 opt = []
@@ -93,13 +67,14 @@ MHE_type = ['Total ballistic', 'Multi-shooting']
 method = ['Newton LS','Newton LS']
 measurement_pen = []
 model_pen = []
+model_pen =  [1e-3,1e-3,1e-3, 5e-1,5e-1,5e-1, 1e-2] # [1e6, 1e6, 1e6, 1e1, 1e1, 1e1, 1e-1] #  [3, 3, 3, 1, 1, 1, 0.43] #[1, 1, 1, 1e1, 1e1, 1e1, 1e-1]
 arrival = [1, 1]
 
 for i in range(len(N)):
     if MHE_type[i] == 'Total ballistic':
-        opt.append(total_ballistic(m, o, N[i], measurement_lapse, model_pen, method[i], Q))
+        opt.append(total_ballistic(m, o, N[i], measurement_lapse, model_pen, method[i], Q, R))
     elif MHE_type[i] == 'Ballistic reg':
-        opt.append(MHE_regularisation(m, o, N[i], measurement_lapse, model_pen, method[i], Q))
+        opt.append(MHE_regularisation(m, o, N[i], measurement_lapse, model_pen, method[i], Q, R))
     elif MHE_type[i] == 'Multi-shooting':
         opt.append(multishooting(m, d, o, N[i], measurement_lapse, measurement_pen, model_pen, Q, R, arrival[i], method[i]))
     elif MHE_type[i] == 'MS with PE':

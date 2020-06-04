@@ -8,7 +8,7 @@ import sys
 
 
 class total_ballistic:
-    def __init__(self, model, observer, horizon_length, measurement_lapse, model_pen, opt_method = 'Newton LS', Q = []):
+    def __init__(self, model, observer, horizon_length, measurement_lapse, model_pen, opt_method = 'Newton LS', Q = [], R=[]):
         self.m = model  # copy direction of model to access all function of the class
         self.o = observer  # copy direction of observer to access all function of the class
 
@@ -26,15 +26,24 @@ class total_ballistic:
 
         self.mu1 = 1
         self.matrixR = []
+        if R == []:
+            self.reg1 = LA.inv(np.array([[50, 0, 0], [0, (1e-3), 0], [0, 0, (1e-3)]]))
+        else:
+            self.reg1 = LA.inv(np.power(R, 0.5))
 
-        self.reg1 = LA.inv(np.array([[50, 0, 0], [0, (1e-3), 0], [0, 0, (1e-3)]]))
         if Q == [] :
+            print('Q not used')
             self.R_mu = np.identity(7)
             for i in range(7): self.R_mu[i, i] = model_pen[i]
             self.mu2 = model_pen[6]
         else:
+            print('Q used')
             self.R_mu = LA.inv(np.power(Q, 0.5))
             self.mu2 = self.R_mu[6,6]
+
+        print(self.mu2)
+        print(model_pen)
+        sys.exit()
         # -------------------------------------------------- #
         self.initial_coefs =[1,1,1,1,1]
         self.real_x = []
