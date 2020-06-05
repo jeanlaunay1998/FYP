@@ -33,11 +33,14 @@ class multishooting:
         else:
             self.reg1 = LA.inv(np.power(R, 0.5))
 
-        # self.reg2 = np.identity(7)
-        self.reg2 = LA.inv(np.power(self.Q, 0.5))  # np.zeros(7)  # position, velocity and ballistic coeff
-        # self.reg2[6,6] = 0.1*self.reg2[6,6]
-        # for i in range(7):
-        #     self.reg2[i,i] = self.model_pen[i]
+
+        if Q == []:
+            self.reg2 = np.identity(7)
+            self.reg2[6, 6] = 0.1 * self.reg2[6, 6]
+            for i in range(7):
+                self.reg2[i,i] = self.model_pen[i]
+        else:
+            self.reg2 = LA.inv(np.power(self.Q, 0.5))  # np.zeros(7)  # position, velocity and ballistic coeff
 
         # VARIABLES FOR ARRIVAL COST
         self.x_prior = np.zeros(7)
@@ -214,13 +217,18 @@ class multishooting:
             # f_i.append([r[0], r[1], r[2], v[0], v[1], v[2], beta])
 
         R1 = np.zeros((3,3))
-        R2 = np.zeros((7,7))
         for i in range(3):
             R1[i,:] = self.reg1[i,:]*self.reg1[i,i]
-        for i in range(7):
-            R2[i,:] = self.reg2[i,:]*self.reg2[i,i]
-        R_mu = np.identity(7)
-        for i in range(7): R_mu[i, i] = (self.reg2[i, i])**2 # / self.model_pen[i])**2
+        R_mu = np.matmul(self.reg2, self.reg2)
+        R2 = np.matmul(self.reg2, self.reg2)
+
+        # for i in range(7):
+        #     R2[i,:] = self.reg2[i,:]*self.reg2[i,i]
+        # R_mu = np.identity(7)
+        # for i in range(7):
+        #     R_mu[i, :] = self.reg2[i,:]*self.reg2[i,i]
+
+
 
         grad[0:7] = np.matmul(np.transpose(dh_i[0]), np.matmul(R1, self.o.h(var[0:3], 'off') - self.y[0])) \
                     - np.matmul(np.transpose(df_i[0]), self.pen*np.matmul(R2, var[7:14] - f_i[0])) + \
@@ -266,10 +274,12 @@ class multishooting:
         R2 = np.zeros((7, 7))
         for i in range(3):
             R1[i, :] = self.reg1[i, :] * self.reg1[i, i]
-        for i in range(7):
-            R2[i, :] = self.reg2[i, :] * self.reg2[i, i]
-        R_mu = np.identity(7)
-        for i in range(7): R_mu[i, i] = (self.reg2[i, i])**2 # / self.model_pen[i]) ** 2
+        R_mu = np.matmul(self.reg2, self.reg2)
+        R2 = np.matmul(self.reg2, self.reg2)
+        # for i in range(7):
+        #     R2[i, :] = self.reg2[i, :] * self.reg2[i, i]
+        # R_mu = np.identity(7)
+        # for i in range(7): R_mu[i, :] = self.reg2[i,:]*self.reg2[i,i]
 
         dhdx = self.dh(var[0:7])
         dfdx = self.dfdx(var[0:7])

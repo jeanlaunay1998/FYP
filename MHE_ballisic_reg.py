@@ -8,7 +8,7 @@ import sys
 
 
 class MHE_regularisation:
-    def __init__(self, model, observer, horizon_length, measurement_lapse, model_pen, opt_method = 'Gradient', Q=[], R=[]):
+    def __init__(self, model, observer, horizon_length, measurement_lapse, model_pen, opt_method = 'Gradient', Q=[], R=[], arrival=[]):
         self.m = model  # copy direction of model to access all function of the class
         self.o = observer  # copy direction of observer to access all function of the class
 
@@ -25,7 +25,7 @@ class MHE_regularisation:
         self.beta_apriori = self.m.beta
 
         self.x_solution = [0, 0, 0]
-        self.mu1 = 1
+        self.mu1 = arrival
         self.matrixR = []
 
         if R == []:
@@ -95,8 +95,9 @@ class MHE_regularisation:
             elif self.method == 'Gradient':
                 self.vars = gradient_search(self.vars, self.cost, self.gradient)
             elif self.method == 'Built-in optimizer':
-
                 result = minimize(fun=self.cost, x0=self.vars, method='trust-ncg', jac=self.gradient, hess=self.hessian, options={'maxiter': 50})
+                print(result)
+                sys.exit()
                 self.vars = result.x
             else:
                 print('Optimization method ' + self.method + ' not recognize')
@@ -230,9 +231,12 @@ class MHE_regularisation:
 
 
     def gradient(self, x):
-        R_mu = np.power(self.R_mu, 2)
+        # R_mu = np.identity(7)
+        # for i in range(7):
+        #     R_mu[i, :] = self.R_mu[i, :] * self.R_mu[i, i]
+        R_mu = np.matmul(self.R_mu, self.R_mu)
         x_i = np.copy(x)
-        grad = np.matmul(R_mu, x_i - self.x_apriori)  # arrival cost derivative
+        grad = self.mu1*np.matmul(R_mu, x_i - self.x_apriori)  # arrival cost derivative
 
         dfdx_i = []
         dhdx_i = []
@@ -288,7 +292,7 @@ class MHE_regularisation:
         return grad
 
     def hessian(self, x):
-        R_mu = np.power(self.R_mu, 2)
+        R_mu = np.matmul(self.R_mu, self.R_mu)
         H = self.mu1*R_mu
         x_i = np.copy(x)
 
@@ -326,7 +330,6 @@ class MHE_regularisation:
         # for l in range(len(x)):
         #     if (l // 7) % 2 == 0:
         #         eps = 0.1
-        #
         #         plus_eps = np.copy(x)
         #         plus_eps[l] = plus_eps[l]+eps
         #         minus_eps = np.copy(x)

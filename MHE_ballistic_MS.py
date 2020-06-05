@@ -8,7 +8,7 @@ import sys
 
 
 class total_ballistic:
-    def __init__(self, model, observer, horizon_length, measurement_lapse, model_pen, opt_method = 'Newton LS', Q = [], R=[]):
+    def __init__(self, model, observer, horizon_length, measurement_lapse, model_pen, opt_method = 'Newton LS', Q = [], R=[], arrival=[]):
         self.m = model  # copy direction of model to access all function of the class
         self.o = observer  # copy direction of observer to access all function of the class
 
@@ -24,12 +24,15 @@ class total_ballistic:
         self.beta = self.m.beta
         self.beta_apriori = self.m.beta
 
-        self.mu1 = 1
+        self.mu1 = arrival
         self.matrixR = []
         if R == []:
             self.reg1 = LA.inv(np.array([[50, 0, 0], [0, (1e-3), 0], [0, 0, (1e-3)]]))
         else:
             self.reg1 = LA.inv(np.power(R, 0.5))
+            print(self.reg1)
+        self.reg1 = LA.inv(np.array([[50, 0, 0], [0, (1e-3), 0], [0, 0, (1e-3)]]))
+        # print(self.reg1)
 
         if Q == [] :
             print('Q not used')
@@ -41,9 +44,6 @@ class total_ballistic:
             self.R_mu = LA.inv(np.power(Q, 0.5))
             self.mu2 = self.R_mu[6,6]
 
-        print(self.mu2)
-        print(model_pen)
-        sys.exit()
         # -------------------------------------------------- #
         self.initial_coefs =[1,1,1,1,1]
         self.real_x = []
@@ -239,7 +239,7 @@ class total_ballistic:
 
 
     def gradient(self, x):
-        R_mu = np.power(self.R_mu, 2)
+        R_mu = np.matmul(self.R_mu, self.R_mu)
         x_i = np.copy(x[0:7])
         grad = np.zeros(7 + self.N)
         grad[0:7] = np.matmul(R_mu, x_i - self.x_apriori)  # arrival cost derivative
@@ -315,7 +315,7 @@ class total_ballistic:
 
     def hessian(self, x):
         H = np.zeros((7 + self.N, 7 + self.N))
-        R_mu = np.power(self.R_mu, 2)
+        R_mu = np.matmul(self.R_mu, self.R_mu)
         x_i = np.copy(x[0:7])
         H[0:7, 0:7] = self.mu1 * R_mu
         dfdx_i = []
