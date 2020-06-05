@@ -28,8 +28,8 @@ delta = int(0)
 height = 80e3
 
 # Initialisation of true dynamics and approximation model
-o = SateliteObserver(22, 10)  #40.24, 3.42)
-d = dynamics(height, 22, 0, 6000, -5, 60, o, wind='off', mass_change='off')
+o = SateliteObserver(22, 10)
+d = dynamics(height, 22, 0, 6000, -5, 60, o, wind='on', mass_change='on')
 initialbeta = d.beta[0] + np.random.normal(0, 0.01*d.beta[0], size=1)[0]
 m = model(d.r, d.v, initialbeta, measurement_lapse)
 
@@ -131,43 +131,43 @@ print('----')
 print(process_covariance)
 
 
-# sns.set()
-#
-# theoretical_r = np.random.normal(0, Q[0,0]**0.5, size=50000)
-# theoretical_v = np.random.normal(0, Q[3,3]**0.5, size=50000)
-# theoretical_beta = np.random.normal(0, Q[6,6]**0.5, size=50000)
-#
-# fig, axes = plt.subplots(1,3)
-#
-# prob = pd.DataFrame(np.array(process_error)[:,0:3])
-# prob.plot(kind="kde", ax=axes[0])
-# prob = pd.DataFrame(theoretical_r)
-# prob.plot(kind="kde", style='--', color='k', ax=axes[0])
-# axes[0].axvline(np.sum(process_mean[0:3])/3, color='k', linestyle='--')
-#
-# prob = pd.DataFrame(np.array(process_error)[:,3:6])
-# prob.plot(kind="kde", ax=axes[1])
-# prob = pd.DataFrame(theoretical_v)
-# prob.plot(kind="kde", style='--', color='k', ax=axes[1])
-# axes[1].axvline(sum(process_mean[3:6])/3, color='k', linestyle='--')
-#
-# prob = pd.DataFrame(np.array(process_error)[:,6])
-# prob.plot(kind="kde", ax=axes[2])
-# prob = pd.DataFrame(theoretical_beta)
-# prob.plot(kind="kde", style='--', color='k', ax=axes[2])
-# axes[2].axvline(process_mean[6], color='k', linestyle='--')
-#
-#
-#
-# axes[0].set_xlabel(r'$r \; (km)$')
-# axes[0].legend([r"$x$",r"$y$",r"$z$"]);
-# axes[1].set_xlabel(r'$v \; (m.s^{-1})$')
-# axes[1].legend([r"$x$",r"$y$",r"$z$"]);
-# axes[2].set_xlabel(r'$\beta \; (kg.m^{-2})$')
-# axes[2].legend([r"$\beta$"]);
-# plt.subplots_adjust(left=0.05, right=0.97, top=0.75, bottom=0.25)
-# plt.show()
-# sys.exit()
+sns.set()
+
+theoretical_r = np.random.normal(0, Q[0,0]**0.5, size=50000)
+theoretical_v = np.random.normal(0, Q[3,3]**0.5, size=50000)
+theoretical_beta = np.random.normal(0, Q[6,6]**0.5, size=50000)
+
+fig, axes = plt.subplots(1,3)
+
+prob = pd.DataFrame(np.array(process_error)[:,0:3])
+prob.plot(kind="kde", ax=axes[0])
+prob = pd.DataFrame(theoretical_r)
+prob.plot(kind="kde", style='--', color='k', ax=axes[0])
+axes[0].axvline(np.sum(process_mean[0:3])/3, color='k', linestyle='--')
+
+prob = pd.DataFrame(np.array(process_error)[:,3:6])
+prob.plot(kind="kde", ax=axes[1])
+prob = pd.DataFrame(theoretical_v)
+prob.plot(kind="kde", style='--', color='k', ax=axes[1])
+axes[1].axvline(sum(process_mean[3:6])/3, color='k', linestyle='--')
+
+prob = pd.DataFrame(np.array(process_error)[:,6])
+prob.plot(kind="kde", ax=axes[2])
+prob = pd.DataFrame(theoretical_beta)
+prob.plot(kind="kde", style='--', color='k', ax=axes[2])
+axes[2].axvline(process_mean[6], color='k', linestyle='--')
+
+
+
+axes[0].set_xlabel(r'$r \; (km)$')
+axes[0].legend([r"$x$",r"$y$",r"$z$"]);
+axes[1].set_xlabel(r'$v \; (m.s^{-1})$')
+axes[1].legend([r"$x$",r"$y$",r"$z$"]);
+axes[2].set_xlabel(r'$\beta \; (kg.m^{-2})$')
+axes[2].legend([r"$\beta$"]);
+plt.subplots_adjust(left=0.05, right=0.97, top=0.75, bottom=0.25)
+plt.show()
+sys.exit()
 
 
 

@@ -159,13 +159,14 @@ class dynamics:
 
         # introduce wind at h = 60Km of height
         h = LA.norm(self.r) - self.R
-        if h < 60*(10**3):
+        if h < 50*(10**3):
             if self.wind_mod == 'on':
                 self.wind_mod = 'off'
                 w_induced =  self.wind_introduction()
                 print('wind modification!!!!')
                 for i in range(3):
                     self.v[i] = self.v[i] + w_induced[i]
+                self.m = 0.5*self.m
 
         if self.mass_change == 'on':
             if h <= 70*(10**3) and h >= 50*(10**3): self.mass_loss()

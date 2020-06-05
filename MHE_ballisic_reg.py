@@ -96,8 +96,6 @@ class MHE_regularisation:
                 self.vars = gradient_search(self.vars, self.cost, self.gradient)
             elif self.method == 'Built-in optimizer':
                 result = minimize(fun=self.cost, x0=self.vars, method='trust-ncg', jac=self.gradient, hess=self.hessian, options={'maxiter': 50})
-                print(result)
-                sys.exit()
                 self.vars = result.x
             else:
                 print('Optimization method ' + self.method + ' not recognize')

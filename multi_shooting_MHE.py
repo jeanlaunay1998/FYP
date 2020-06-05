@@ -213,20 +213,12 @@ class multishooting:
             dh_i.append(self.dh(var[i*7:(i+1)*7]))
             df_i.append(self.dfdx(var[i*7:(i+1)*7]))
             f_i.append(self.m.f(var[i * 7:(i + 1) * 7], 'off'))
-            # r, v, a, beta = self.m.f(var[i*7:i*7+3], var[i*7+3:i*7+6], var[i*7+6], 'off')
-            # f_i.append([r[0], r[1], r[2], v[0], v[1], v[2], beta])
 
         R1 = np.zeros((3,3))
         for i in range(3):
             R1[i,:] = self.reg1[i,:]*self.reg1[i,i]
         R_mu = np.matmul(self.reg2, self.reg2)
         R2 = np.matmul(self.reg2, self.reg2)
-
-        # for i in range(7):
-        #     R2[i,:] = self.reg2[i,:]*self.reg2[i,i]
-        # R_mu = np.identity(7)
-        # for i in range(7):
-        #     R_mu[i, :] = self.reg2[i,:]*self.reg2[i,i]
 
 
 
@@ -276,10 +268,6 @@ class multishooting:
             R1[i, :] = self.reg1[i, :] * self.reg1[i, i]
         R_mu = np.matmul(self.reg2, self.reg2)
         R2 = np.matmul(self.reg2, self.reg2)
-        # for i in range(7):
-        #     R2[i, :] = self.reg2[i, :] * self.reg2[i, i]
-        # R_mu = np.identity(7)
-        # for i in range(7): R_mu[i, :] = self.reg2[i,:]*self.reg2[i,i]
 
         dhdx = self.dh(var[0:7])
         dfdx = self.dfdx(var[0:7])
@@ -357,6 +345,7 @@ class multishooting:
                 self.vars = np.copy(result.x)
             else:
                 print('Optimization method ' + self.method + ' non recognize')
+                sys.exit()
             if any(self.vars == x_0):
                 print('opt failed')
                 self.vars = np.zeros(len(self.vars))
