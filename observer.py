@@ -4,7 +4,7 @@ from numpy import linalg as LA
 
 class SateliteObserver:
 
-    def __init__(self, lat, long):
+    def __init__(self, lat, long, measurement_covariance = []):
         # transform latitude and longitude to radians
         self.theta = long*np.pi/180
         self.phi = lat*np.pi/180
@@ -21,6 +21,10 @@ class SateliteObserver:
                              np.sin(self.phi)]])
         self.R = 6371e3
         self.sat = [np.cos(self.phi)*np.cos(self.theta)*self.R, np.cos(self.phi)*np.sin(self.theta)*self.R, np.sin(self.phi)*self.R]
+        if measurement_covariance == []:
+            self.measurement_cov = [100, 1e-3, 1e-3]
+        else:
+            self.measurement_cov = [measurement_covariance[0,0],measurement_covariance[1,1],measurement_covariance[2,2]]
 
     def position_transform(self, r):
         return np.matmul(self.transform_M, r) - [0, 0, self.R]
@@ -33,9 +37,9 @@ class SateliteObserver:
             r = x
 
         if error == 'on':
-            sigma_d = np.random.normal(0, 100, size=1) # 50
-            sigma_el = np.random.normal(0, 1e-3, size=1) # 1e-3
-            sigma_az = np.random.normal(0, 1e-3, size=1) # 1e-3
+            sigma_d = np.random.normal(0, self.measurement_cov[0], size=1) # 50
+            sigma_el = np.random.normal(0, self.measurement_cov[1], size=1) # 1e-3
+            sigma_az = np.random.normal(0, self.measurement_cov[2], size=1) # 1e-3
         elif error == 'off':
             sigma_d = [0]
             sigma_el = [0]

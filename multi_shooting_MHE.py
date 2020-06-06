@@ -31,7 +31,7 @@ class multishooting:
         if R == []:
             self.reg1 = LA.inv(np.array([[50, 0, 0], [0, (1e-3), 0], [0, 0, (1e-3)]]))
         else:
-            self.reg1 = LA.inv(np.power(R, 0.5))
+            self.reg1 = LA.inv(np.power(self.R, 1))
 
 
         if Q == []:
@@ -40,7 +40,7 @@ class multishooting:
             for i in range(7):
                 self.reg2[i,i] = self.model_pen[i]
         else:
-            self.reg2 = LA.inv(np.power(self.Q, 0.5))  # np.zeros(7)  # position, velocity and ballistic coeff
+            self.reg2 = LA.inv(np.power(self.Q, 1))  # np.zeros(7)  # position, velocity and ballistic coeff
 
         # VARIABLES FOR ARRIVAL COST
         self.x_prior = np.zeros(7)

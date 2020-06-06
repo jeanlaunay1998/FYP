@@ -28,7 +28,7 @@ from memory import Memory
 
 
 t_lim = 130
-N = [20, 20, 20]  # size of the horizon
+N = [20]  # size of the horizon
 measurement_lapse = 0.5  # time lapse between every measurement
 
 t = 0.00
@@ -37,7 +37,9 @@ delta = int(0)
 height = 80e3
 
 # Initialisation of true dynamics and approximation model
-o = SateliteObserver(22, 10)  #40.24, 3.42)
+# Initialisation of true dynamics and approximation model
+R_m = np.array([[100**2, 0, 0], [0, (1e-3)**2, 0], [0, 0, (1e-3)**2]])
+o = SateliteObserver(22, 10, R_m)
 d = dynamics(height, 22, 0, 6000, -5, 60, o, wind='on', mass_change='off')
 initialbeta = d.beta[0] + np.random.normal(0, 0.01*d.beta[0], size=1)[0]
 m = model(d.r, d.v, initialbeta, measurement_lapse)
@@ -47,7 +49,7 @@ m = model(d.r, d.v, initialbeta, measurement_lapse)
 R = np.array([[100**2, 0, 0], [0, (1e-3)**2, 0], [0, 0, (1e-3)**2]]) # Measurement covariance matrix
 P0 = np.zeros((7,7))  # Initial covariance matrix
 Q = np.zeros((7,7))  # Process noise covariance matrix
-qa = 2 #0.75 #  Estimated deviation of acceleration between real state and approximated state
+qa = 0.25 #0.75 #  Estimated deviation of acceleration between real state and approximated state
 
 for i in range(3):
     P0[i,i] = 500**2
@@ -64,7 +66,7 @@ Q[6,6] = 60 # 100
 # Initialisation of estimators
 opt = []
 MHE_type = ['Multi-shooting', 'Multi-shooting', 'Multi-shooting']
-method = ['Built-in optimizer','Built-in optimizer','Built-in optimizer']
+method = ['Built-in optimizer','Built-in optimizer']
 measurement_pen = []
 model_pen = []
 model_pen =  [1e-3,1e-3,1e-3, 5e-1,5e-1,5e-1, 1e-2] # [1e6, 1e6, 1e6, 1e1, 1e1, 1e1, 1e-1] #  [3, 3, 3, 1, 1, 1, 0.43] #[1, 1, 1, 1e1, 1e1, 1e1, 1e-1]
@@ -164,7 +166,8 @@ while height > 5000 and t < t_lim:
                 else:
                     memory.save_data(t, opt[i].vars, o.h(m.r, 'off'), opt[i].cost(opt[i].vars), i)
 
-memory.make_plots(real_x, real_beta, y_real, m.Sk, UKF_state, EKF_state)
+memory.make_absolute_plots(real_x, real_beta, y_real, m.Sk, UKF_state, EKF_state)
+# memory.make_plots(real_x, real_beta, y_real, m.Sk, UKF_state, EKF_state)
 
 
 # measurement_pen =  [0.06, 75, 75] # coefficients obtained from the estimation opt of MS_MHE_PE

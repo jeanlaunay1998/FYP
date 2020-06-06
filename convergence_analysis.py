@@ -20,8 +20,8 @@ from memory import Memory
 import matplotlib.pyplot as plt
 import seaborn as sns
 
-t_lim = 9
-N = [2, 2, 2]  # size of the horizon
+t_lim = 121
+N = [20, 20, 20]  # size of the horizon
 measurement_lapse = 0.5  # time lapse between every measurement
 stop_points = [2, 4, 6, 8] # [20, 65, 90, 120] #
 
@@ -37,10 +37,10 @@ m = model(d.r, d.v, initialbeta, measurement_lapse)
 
 
 # covariance matrices
-R = np.array([[50**2, 0, 0], [0, (1e-3)**2, 0], [0, 0, (1e-3)**2]]) # Measurement covariance matrix
+R = np.array([[100**2, 0, 0], [0, (1e-3)**2, 0], [0, 0, (1e-3)**2]]) # Measurement covariance matrix
 P0 = np.zeros((7,7))  # Initial covariance matrix
 Q = np.zeros((7,7))  # Process noise covariance matrix
-qa = 5 #  Estimated deviation of acceleration between real state and approximated state
+qa = 0.25 #  Estimated deviation of acceleration between real state and approximated state
 
 for i in range(3):
     P0[i,i] = 500**2
@@ -55,7 +55,7 @@ Q[6,6] = 100
 
 # Initialisation of estimators
 opt = []
-MHE_type = [ 'Ballistic reg', 'Hybrid multi-shooting', 'Multi-shooting']
+MHE_type = ['Ballistic reg', 'Total ballistic', 'Multi-shooting']
 method = ['Newton LS', 'Newton LS','Newton LS']
 # measurement_pen =  [0.06, 75, 75] # coefficients obtained from the estimation opt of MS_MHE_PE
 # model_pen =  [1e3, 1e3, 1e3, 1e1, 1e1, 1e1, 0.411]  # coefficients obtained from the estimation opt of MS_MHE_PE
@@ -64,20 +64,19 @@ model_pen =  [1e-3,1e-3,1e-3, 5e-1,5e-1,5e-1, 1e-2] # [1e6, 1e6, 1e6, 1e1, 1e1, 
 arrival = [1, 1, 1]
 
 for i in range(len(N)):
-    if MHE_type[i] == 'Hybrid multi-shooting':
-        opt.append(total_ballistic(m, o, N[i], measurement_lapse, model_pen, method[i]))
+    if MHE_type[i] == 'Total ballistic':
+        opt.append(total_ballistic(m, o, N[i], measurement_lapse, model_pen, method[i], Q, R, arrival[i]))
     elif MHE_type[i] == 'Ballistic reg':
-        opt.append(MHE_regularisation(m, o, N[i], measurement_lapse, model_pen, method[i]))
+        opt.append(MHE_regularisation(m, o, N[i], measurement_lapse, model_pen, method[i], Q, R, arrival[i]))
     elif MHE_type[i] == 'Multi-shooting':
         opt.append(multishooting(m, d, o, N[i], measurement_lapse, measurement_pen, model_pen, Q, R, arrival[i], method[i]))
     elif MHE_type[i] == 'MS with PE':
         opt.append(MS_MHE_PE(m, d, o, N[i], measurement_lapse, measurement_pen, model_pen, [P0, Q, R], opt_method=method[i]))
     else:
-        print('Optimization type not recognize')
+        print('MHE type not recognize')
         sys.exit()
-
-
-memory = Memory(o, N, len(N))
+MHE_type = ['Ballistic reg', 'Hybrid multi-shooting', 'Multi-shooting']
+memory = Memory(o, N, len(N), MHE_type)
 
 # unscented kalman filter
 points = MerweScaledSigmaPoints(n=7, alpha=.1, beta=2., kappa=-1)
@@ -176,6 +175,7 @@ while height > 5000 and t < t_lim:
 
 sns.set()
 fig, ax = plt.subplots(len(stop_points)//2, 2)
+plt.subplots_adjust(left=0.13, right=0.9, top=0.85, bottom=0.11)
 
 for i in range(len(stop_points)):
     for j in range(len(opt)):
@@ -204,8 +204,11 @@ colors= ['b', 'r', 'g', 'y']
 shape = ['-+', '--', '-s']
 
 fig1, ax1 = plt.subplots(len(stop_points)//2, 2)
+plt.subplots_adjust(left=0.13, right=0.9, top=0.85, bottom=0.11)
 fig2, ax2 = plt.subplots(len(stop_points)//2, 2)
+plt.subplots_adjust(left=0.13, right=0.9, top=0.85, bottom=0.11)
 fig3, ax3 = plt.subplots(len(stop_points)//2, 2)
+plt.subplots_adjust(left=0.13, right=0.9, top=0.85, bottom=0.11)
 
 for i in range(len(stop_points)):
     for j in range(len(opt)):
@@ -253,15 +256,15 @@ for i in range(len(stop_points)):
     ax3[i // 2, i % 2].set_title('Time (s) = ' + str(stop_points[i]))
 
 for axs in ax1.flat:
-    axs.set(xlabel='Iterations', ylabel=r'$||\Delta \hat r_i ||^2$')
+    axs.set(xlabel='Iterations', ylabel=r'$||\Delta \hat r_i|| \; (m)$')
 for axs in ax1.flat:
     axs.label_outer()
 for axs in ax2.flat:
-    axs.set(xlabel='Iterations', ylabel=r'$||\Delta  \hat v_i ||^2$')
+    axs.set(xlabel='Iterations', ylabel=r'$||\Delta  \hat v_i|| \; (m.s^{-1})$')
 for axs in ax2.flat:
     axs.label_outer()
 for axs in ax3.flat:
-    axs.set(xlabel='Iterations', ylabel=r'$||\Delta \hat \beta_i ||^2$')
+    axs.set(xlabel='Iterations', ylabel=r'$||\Delta \hat \beta_i|| \; (kg.m^{-2})$')
 for axs in ax3.flat:
     axs.label_outer()
 

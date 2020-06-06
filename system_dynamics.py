@@ -4,7 +4,7 @@ import sys
 
 
 class dynamics:
-    def __init__(self, ho, lat, long, vo, gamma_o, theta_o, observer, wind='off', mass_change='off'):
+    def __init__(self, ho, lat, long, vo, gamma_o, theta_o, observer, wind='off', mass_change='off', q_a=3, q_bp=0.01):
         # ho: initial height
         # lat: initial latitude
         # long: initial longitude
@@ -50,6 +50,9 @@ class dynamics:
         self.beta = self.beta_o + self.delta_o
         self.beta = self.beta.tolist()
 
+        self.q_a = q_a ** 2
+        self.q_b = pow(q_bp * self.beta_o, 2)
+
         self.a = self.acceleration(self.v, self.r)
         self.x = [[self.a, self.v, self.r]]
 
@@ -59,6 +62,8 @@ class dynamics:
         self.observer = observer
         self.wind_mod = wind
         self.mass_change = mass_change
+
+
 
 
     def temp(self, r):
@@ -128,21 +133,20 @@ class dynamics:
 
 
     def ballistic_coef(self, v, r):
+        self.delta_o = np.random.normal(0, self.q_b, size=1)
         beta =  self.m/(self.A*self.drag_coef(v, r))
         return beta + self.delta_o
 
 
     def acceleration(self, v, r):
         acc = -np.multiply((self.G*self.M)/pow(LA.norm(r), 3), r) - np.multiply(self.density_h(r)*LA.norm(v)/(2*self.ballistic_coef(v, r)), v)
-        self.a_res = np.random.normal(0, pow(0.075 * LA.norm(acc), 2), size=1)
+        self.a_res = np.random.normal(0, self.q_a, size=1)
         return list(acc + self.a_res)
 
     def dx(self, v, r):
         return self.acceleration(v, r), v
 
     def step_update(self, v, r):
-        self.delta_o = np.random.normal(0, pow(0.01 * self.beta_o, 2), size=1)
-
         K1 = np.multiply(self.delta_t, self.dx(v, r))
         K2 = np.multiply(self.delta_t, self.dx(v+K1[0, :]/2, r+K1[1, :]/2))
         K3 = np.multiply(self.delta_t, self.dx(v+K2[0, :]/2, r+K2[1, :]/2))
@@ -159,7 +163,7 @@ class dynamics:
 
         # introduce wind at h = 60Km of height
         h = LA.norm(self.r) - self.R
-        if h < 50*(10**3):
+        if h < 43*(10**3):
             if self.wind_mod == 'on':
                 self.wind_mod = 'off'
                 w_induced =  self.wind_introduction()
