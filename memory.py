@@ -511,7 +511,7 @@ class Memory:
 
         labelstring[i]
 
-        plt.show()
+        # plt.show()
         return return_array
 
 

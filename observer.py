@@ -24,7 +24,7 @@ class SateliteObserver:
         if measurement_covariance == []:
             self.measurement_cov = [100, 1e-3, 1e-3]
         else:
-            self.measurement_cov = [measurement_covariance[0,0],measurement_covariance[1,1],measurement_covariance[2,2]]
+            self.measurement_cov = [measurement_covariance[0,0]**0.5,measurement_covariance[1,1]**0.5,measurement_covariance[2,2]**0.5]
 
     def position_transform(self, r):
         return np.matmul(self.transform_M, r) - [0, 0, self.R]
