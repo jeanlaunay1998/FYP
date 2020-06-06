@@ -20,7 +20,7 @@ from matplotlib import rc
 import seaborn as sns
 
 
-t_lim = 15
+t_lim = 150
 measurement_lapse = 0.5 # time lapse between every measurement
 t = 0.00
 step = int(0)  # number of measurements measurements made

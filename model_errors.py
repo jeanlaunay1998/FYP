@@ -20,7 +20,7 @@ from matplotlib import rc
 import seaborn as sns
 
 
-t_lim = 15
+t_lim = 150
 measurement_lapse = 0.5 # time lapse between every measurement
 t = 0.00
 step = int(0)  # number of measurements measurements made
@@ -30,11 +30,14 @@ height = 80e3
 # Initialisation of true dynamics and approximation model
 model_error = True
 
-
+ekf_conv = []
+ukf_conv = []
+balreg_conv = []
+multi_reg_conv = []
 if model_error:
     print('----------------------------------------------------')
 
-    R_m = [np.array([[100 ** 2, 0, 0], [0, (1e-3) ** 2, 0], [0, 0, (1e-3) ** 2]]),
+    R_m = [np.array([[100 ** 2, 0, 0], [0, (0.5-3) ** 2, 0], [0, 0, (0.5e-3) ** 2]]),np.array([[100 ** 2, 0, 0], [0, (1e-3) ** 2, 0], [0, 0, (1e-3) ** 2]]),
            np.array([[100 ** 2, 0, 0], [0, (2.5e-3) ** 2, 0], [0, 0, (2.5e-3) ** 2]]),
            np.array([[100 ** 2, 0, 0], [0, (5e-3) ** 2, 0], [0, 0, (5e-3) ** 2]]),
            np.array([[100 ** 2, 0, 0], [0, (7.5e-3) ** 2, 0], [0, 0, (7.5e-3) ** 2]]),
@@ -67,7 +70,7 @@ if model_error:
         m = model(d.r, d.v, initialbeta, measurement_lapse)
 
         # covariance matrices
-        R = np.array([[100 ** 2, 0, 0], [0, (1e-3) ** 2, 0], [0, 0, (1e-3) ** 2]])  # Measurement covariance matrix
+        # R = np.array([[100 ** 2, 0, 0], [0, (1e-3) ** 2, 0], [0, 0, (1e-3) ** 2]])  # Measurement covariance matrix
         P0 = np.zeros((7, 7))  # Initial covariance matrix
         Q = np.zeros((7, 7))  # Process noise covariance matrix
         qa = 0.25  # 0.75 #  Estimated deviation of acceleration between real state and approximated state
@@ -189,10 +192,15 @@ if model_error:
         print(c)
         print(f)
         print('---------------------------------------------------')
-        ekf_errors.append(a)
-        ukf_errors.append(b)
-        balreg_error.append(c)
-        multi_reg.append(f)
+        ekf_errors.append(a[0])
+        ekf_conv.append([a[1], a[2]])
+        ukf_errors.append(b[0])
+        ukf_conv.append([b[1], b[2]])
+        balreg_error.append(c[0])
+        balreg_conv.append([c[1], c[2]])
+        multi_reg.append(f[0])
+        multi_reg_conv.append([f[1], f[2]])
+
         # totalreg.ap
 
 print(ekf_errors)
@@ -233,5 +241,15 @@ for axs in ax.flat:
     axs.label_outer()
 handles, labels = ax[0].get_legend_handles_labels()
 fig.legend(handles, labels, loc='upper center', ncol=4)
+
+plt.figure()
+plt.plot(np.power(np.array(R_m)[:,2,2], 0.5), 100*np.array(ekf_conv)[:, 0],'r', label='EKF')
+plt.plot(np.power(np.array(R_m)[:,2,2], 0.5), 100*np.array(ekf_conv)[:, 0],'--r', label='UKF')
+plt.plot(np.power(np.array(R_m)[:,2,2], 0.5), 100*np.array(balreg_conv)[:, 0],'b', label='Ballistic reg MHE')
+plt.plot(np.power(np.array(R_m)[:,2,2], 0.5), 100*np.array(multi_reg_conv)[:, 0],'--b', label='Multi-shooting MHE')
+# plt.set(xlabel=r"$\sigma_{\beta} \; (rad)$", ylabel="Non-divergence percentage")
+plt.xlabel(r"$\sigma_{\beta} \; (rad)$")
+plt.ylabel("Non-divergence (%)")
+plt.legend(loc='best')
 
 plt.show()
