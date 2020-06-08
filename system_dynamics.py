@@ -50,8 +50,8 @@ class dynamics:
         self.beta = self.beta_o + self.delta_o
         self.beta = self.beta.tolist()
 
-        self.q_a = q_a ** 2
-        self.q_b = pow(q_bp * self.beta_o, 2)
+        self.q_a = q_a ** 1
+        self.q_b = pow(q_bp * self.beta_o, 1)
 
         self.a = self.acceleration(self.v, self.r)
         self.x = [[self.a, self.v, self.r]]
@@ -140,7 +140,7 @@ class dynamics:
 
     def acceleration(self, v, r):
         acc = -np.multiply((self.G*self.M)/pow(LA.norm(r), 3), r) - np.multiply(self.density_h(r)*LA.norm(v)/(2*self.ballistic_coef(v, r)), v)
-        self.a_res = np.random.normal(0, self.q_a, size=1)
+        self.a_res = np.random.normal(0, self.q_a, size=3)
         return list(acc + self.a_res)
 
     def dx(self, v, r):
@@ -166,6 +166,9 @@ class dynamics:
         if h < 43*(10**3):
             if self.wind_mod == 'on':
                 self.wind_mod = 'off'
+                # self.D = self.D/2
+                # self.A = self.A/2
+                # self.A = np.pi * pow(self.D / 2, 2)
                 w_induced =  self.wind_introduction()
                 print('wind modification!!!!')
                 for i in range(3):
@@ -179,7 +182,7 @@ class dynamics:
 
 
     def wind_introduction(self):
-        angle = np.random.normal(0, 1, size=1)*np.pi
+        angle = np.random.normal(0, 2*np.pi, size=1)*np.pi
         W_inf = 300
         v_SEU = [0, 0, 0]
         v_SEU[0] = W_inf*np.cos(angle[0])

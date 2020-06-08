@@ -115,7 +115,7 @@ def conv_analysis(x, grad_fun, hess_fun, cost_fun, linesearch='off'):
     x_history = [x0]
     cost_history = [cost_fun(x0)]
     print(cost_fun(x0))
-    for i in range(40):
+    for i in range(30):
         gradient = grad_fun(x0)
         hessian = hess_fun(x0)
         if LA.det(hessian) == 0:

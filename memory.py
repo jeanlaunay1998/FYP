@@ -317,15 +317,17 @@ class Memory:
 
             # ballistic coefficient plot
         # plt.figure(1)
-        # plt.plot(self.t, real_beta[self.N[0]:len(real_beta)], 'k', label='True system')
+        # plt.plot(self.t, real_beta[self.N[0]:len(real_beta)], 'b', label='True system')
         # plt.plot(self.t, UKF_states[self.N[0]:len(UKF_states), 6], 'b', label='Unscented Kalman filter')
         # plt.plot(self.t, EKF_states[self.N[0]:len(EKF_states), 6], 'r', label='Extended Kalman filter')
         # for i in range(self.size):
-            # plt.plot(self.t[self.N[i]-self.N[0]:len(self.t)], self.states[i][:, self.N[i], 6], '--', label=labelstring[i])
-        # plt.ylim([0,1000])
-        # plt.legend(loc='best')
+        #     plt.plot(self.t[self.N[i]-self.N[0]:len(self.t)], self.states[i][:, self.N[i], 6], '--', label=labelstring[i])
+        # plt.ylim([0,1400])
+        # plt.legend(loc=
+        # 'best')
         # plt.xlabel('Time (s)')
-        # plt.ylabel('Ballistic Coefficient')
+        # plt.ylabel(r"$\beta \; (kg.m^{-2})$")
+        # plt.show()
 
         # Measurements plot
         # fig, ax = plt.subplots(3, 2)
@@ -342,27 +344,27 @@ class Memory:
         # ax[2, 0].plot(self.t, np.array(ekf_y)[self.N[0]:len(EKF_states), 2], 'r', label='Extended Kalman filter')
         # ax[2, 0].set(xlabel='Time (s)', ylabel='az (radians)')
 
-        for j in range(3):
-            y = np.abs(np.array(ukf_y)[self.N[0]:len(UKF_states), j] - np.array(y_real)[self.N[0]:len(y_real), j])
-            y1 = np.abs(np.array(ekf_y)[self.N[0]:len(EKF_states), j] - np.array(y_real)[self.N[0]:len(y_real), j])
+        # for j in range(3):
+            # y = np.abs(np.array(ukf_y)[self.N[0]:len(UKF_states), j] - np.array(y_real)[self.N[0]:len(y_real), j])
+            # y1 = np.abs(np.array(ekf_y)[self.N[0]:len(EKF_states), j] - np.array(y_real)[self.N[0]:len(y_real), j])
             # ax[j, 1].plot(self.t, y, '-b')
             # ax[j, 1].plot(self.t, y1, '-r')
 
-        lim = [0.5, 5, 30]
-        for i in range(self.size):
-            # ax[0, 0].plot(self.t[self.N[i]-self.N[0]:len(self.t)], np.array(self.y_estimates[i])[:, self.N[i], 0], '--')
-            # ax[1, 0].plot(self.t[self.N[i]-self.N[0]:len(self.t)], np.array(self.y_estimates[i])[:, self.N[i], 1], '--')
-            # ax[2, 0].plot(self.t[self.N[i]-self.N[0]:len(self.t)], np.array(self.y_estimates[i])[:, self.N[i], 2], '--', label=labelstring[i])
-            for j in range(3):
-                y = np.abs(np.array(self.y_estimates[i])[:, self.N[i], j]-np.array(y_real)[self.N[i]:len(y_real), j])
-                # ax[j, 1].plot(self.t[self.N[i]-self.N[0]:len(self.t)], y, '--')
-                # ax[j, 1].set(xlabel='Time (s)', ylabel='Error')
+        # lim = [0.5, 5, 30]
+        # for i in range(self.size):
+        #     ax[0, 0].plot(self.t[self.N[i]-self.N[0]:len(self.t)], np.array(self.y_estimates[i])[:, self.N[i], 0], '--')
+        #     ax[1, 0].plot(self.t[self.N[i]-self.N[0]:len(self.t)], np.array(self.y_estimates[i])[:, self.N[i], 1], '--')
+        #     ax[2, 0].plot(self.t[self.N[i]-self.N[0]:len(self.t)], np.array(self.y_estimates[i])[:, self.N[i], 2], '--', label=labelstring[i])
+        #     for j in range(3):
+        #         y = np.abs(np.array(self.y_estimates[i])[:, self.N[i], j]-np.array(y_real)[self.N[i]:len(y_real), j])
+        #         ax[j, 1].plot(self.t[self.N[i]-self.N[0]:len(self.t)], y, '--')
+        #         ax[j, 1].set(xlabel='Time (s)', ylabel='Error')
 
         # handles, labels = ax[2, 0].get_legend_handles_labels()
         # fig.legend(handles, labels, loc='upper center', ncol=4)
 
-        position_criterion = 800
-        velocity_criterion = 800# np.power(2*position_criterion**2/0.25, 0.5)
+        position_criterion = 400
+        velocity_criterion = 100# np.power(2*position_criterion**2/0.25, 0.5)
 
         # position plot
         # fig, ax = plt.subplots(3, 2)
@@ -378,7 +380,7 @@ class Memory:
         # ax[2, 0].plot(self.t, UKF_states[self.N[0]:len(UKF_states), 2], 'b', label='Unscented Kalman filter')
         # ax[2, 0].plot(self.t, EKF_states[self.N[0]:len(EKF_states), 2], 'r', label='Extended Kalman filter')
         # ax[2, 0].set(xlabel='Time (s)', ylabel='Position U (m)')
-        lim = [1, 5, 1]
+        # lim = [1, 5, 1]
 
 
         for j in range(3):
@@ -542,6 +544,7 @@ class Memory:
             return_array.append([[p_av_MHE, v_av_MHE, beta_av_MHE], MHE_position_conv[i], MHE_velocity_conv[i]])
 
         labelstring[i]
+        # plt.show()
         return return_array
 
 

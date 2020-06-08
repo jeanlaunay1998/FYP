@@ -20,7 +20,7 @@ from matplotlib import rc
 import seaborn as sns
 
 
-t_lim = 15
+t_lim = 130
 measurement_lapse = 0.5 # time lapse between every measurement
 t = 0.00
 step = int(0)  # number of measurements measurements made
@@ -34,24 +34,34 @@ ekf_conv = []
 ukf_conv = []
 balreg_conv = []
 multi_reg_conv = []
+
 if model_error:
-    print('----------------------------------------------------')
+    print('----------------------------------------------------') # 0.005, 0.01, 0.025, 0.05, 0.075, 0.1, 0.125
 
-    R_m = [np.array([[100 ** 2, 0, 0], [0, (1e-3) ** 2, 0], [0, 0, (1e-3) ** 2]])]
-    a_res = [1.5, 3]#, 4.5, 6, 9, 12]
+    R_m = [np.array([[100 ** 2, 0, 0], [0, (0.5e-3) ** 2, 0], [0, 0, (0.5e-3) ** 2]]),\
+          np.array([[100 ** 2, 0, 0], [0, (1e-3) ** 2, 0], [0, 0, (1e-3) ** 2]]),\
+          [np.array([[100 ** 2, 0, 0], [0, (2.5e-3) ** 2, 0], [0, 0, (2.5e-3) ** 2]])],\
+          [np.array([[100 ** 2, 0, 0], [0, (5e-3) ** 2, 0], [0, 0, (5e-3) ** 2]])],\
+          [np.array([[100 ** 2, 0, 0], [0, (7.5e-3) ** 2, 0], [0, 0, (7.5e-3) ** 2]])],\
+          [np.array([[100 ** 2, 0, 0], [0, (10e-3) ** 2, 0], [0, 0, (10e-3) ** 2]])],\
+           [np.array([[100 ** 2, 0, 0], [0, (12.5e-3) ** 2, 0], [0, 0, (12.5e-3) ** 2]])]]
+    a_res = [1.5, 3, 4.5, 6, 9, 12]
     qqa = [0.1, 0.5, 2, 4, 20, 42]
+    beta_res = [0.005, 0.01, 0.015, 0.02, 0.03, 0.04, 0.08]
+    qbeta = [20, 40, 80, 190, 1000, 1800, 180*200]
 
-    Nruns = len(a_res)
+
+    Nruns = len(R_m)
     ukf_errors = []
     ekf_errors = []
     balreg_error = []
     total_reg = []
     multi_reg = []
 
-    for s in range(len(a_res)):
+    for s in range(len(R_m)):
         N = [20, 20]  # size of the horizon
         MHE_type = ['Multi-shooting', 'Ballistic reg', 'Multi-shooting']
-        method = ['Built-in optimizer', 'Built-in optimizer']
+        method = ['Newton LS', 'Newton LS']
         arrival = [1, 1]
 
         t = 0.00
@@ -61,16 +71,17 @@ if model_error:
 
         # Initialisation of true dynamics and approximation model
         # Initialisation of true dynamics and approximation model
-        R = R_m[0]
+        R = R_m[s]
+        print(R)
         o = SateliteObserver(22, 10, R)
-        d = dynamics(height, 22, 0, 6000, -5, 60, o, wind='off', mass_change='off', q_a=a_res[s])
+        d = dynamics(height, 22, 0, 6000, -5, 60, o, wind='off', mass_change='off', q_a=9, q_bp=0.01)
         initialbeta = d.beta[0] + np.random.normal(0, 0.01 * d.beta[0], size=1)[0]
         m = model(d.r, d.v, initialbeta, measurement_lapse)
 
         # covariance matrices
         P0 = np.zeros((7, 7))  # Initial covariance matrix
         Q = np.zeros((7, 7))  # Process noise covariance matrix
-        qa = qqa[s]  # 0.75 #  Estimated deviation of acceleration between real state and approximated state
+        qa = 0.3 # qqa[s]  # 0.75 #  Estimated deviation of acceleration between real state and approximated state
 
         for i in range(3):
             P0[i, i] = 500 ** 2
@@ -81,13 +92,13 @@ if model_error:
             Q[i + 3, i] = (qa * measurement_lapse ** 2) / 2
             Q[i + 3, i + 3] = qa * measurement_lapse
         P0[6, 6] = 20 ** 2
-        Q[6, 6] = 60  # 100
+        Q[6, 6] = 20
 
         # Initialisation of estimators
         opt = []
         measurement_pen = []
         model_pen = []
-        model_pen = [1e-3, 1e-3, 1e-3, 5e-1, 5e-1, 5e-1,1e-2]  # [1e6, 1e6, 1e6, 1e1, 1e1, 1e1, 1e-1] #  [3, 3, 3, 1, 1, 1, 0.43] #[1, 1, 1, 1e1, 1e1, 1e1, 1e-1]
+        model_pen = [1e-3, 1e-3, 1e-3, 5e-1, 5e-1, 5e-1,1e-2]
 
         for i in range(len(N)):
             if MHE_type[i] == 'Total ballistic':
@@ -184,6 +195,7 @@ if model_error:
                         else:
                             memory.save_data(t, opt[i].vars, o.h(m.r, 'off'), opt[i].cost(opt[i].vars), i)
         a, b, c, f = memory.make_absolute_plots(real_x, real_beta, y_real, m.Sk, UKF_state, EKF_state)
+        # beta_plot.append(real_beta)
         print(a)
         print(b)
         print(c)
@@ -198,7 +210,6 @@ if model_error:
         multi_reg.append(f[0])
         multi_reg_conv.append([f[1], f[2]])
 
-        # totalreg.ap
 
 print(ekf_errors)
 print(ukf_errors)
@@ -207,32 +218,31 @@ print(total_reg)
 print(multi_reg)
 
 fig, ax = plt.subplots(3,1)
-
 for j in range(3):
     y_plot = []
     for i in range(Nruns):
         y_plot.append(np.sum(np.power(ekf_errors[i][j], 2))**0.5)
-    ax[j].plot(a_res, y_plot,'r', label='EKF')
+    ax[j].plot(np.power(np.array(R_m)[:, 1,1], 0.5), y_plot,'r', label='EKF')
 
     y_plot = []
     for i in range(Nruns):
         y_plot.append(np.sum(np.power(ukf_errors[i][j], 2))**0.5)
-    ax[j].plot(a_res, y_plot, '--r', label='UKF')
+    ax[j].plot(np.power(np.array(R_m)[:, 1,1], 0.5), y_plot, '--r', label='UKF')
 
     y_plot = []
     for i in range(Nruns):
         y_plot.append(np.sum(np.power(multi_reg[i][j], 2)) ** 0.5)
-    ax[j].plot(a_res, y_plot, 'b', label='Ballistic reg MHE')
+    ax[j].plot(np.power(np.array(R_m)[:, 1,1], 0.5), y_plot, 'b', label='Ballistic reg MHE')
 
     y_plot = []
     for i in range(Nruns):
         y_plot.append(np.sum(np.power(balreg_error[i][j], 2)) ** 0.5)
-    ax[j].plot(a_res, y_plot, '--b', label='Multi-shooting MHE')
+    ax[j].plot(np.power(np.array(R_m)[:, 1,1], 0.5), y_plot, '--b', label='Multi-shooting MHE')
 
 plot_type = [r"$||r - \hat{r}||$", r"$||v - \hat{v}||$", r"$||\beta - \hat{\beta}||$" ]
 i = 0
 for axs in ax.flat:
-    axs.set(xlabel=r"$a_{res} \; (m.s^{-2})$", ylabel=plot_type[i])
+    axs.set(xlabel=r"$\sigma_\beta \; (rad)$", ylabel=plot_type[i])
     i = i +1
 for axs in ax.flat:
     axs.label_outer()
@@ -240,13 +250,12 @@ handles, labels = ax[0].get_legend_handles_labels()
 fig.legend(handles, labels, loc='upper center', ncol=4)
 
 plt.figure()
-plt.plot(a_res, 100*np.array(ekf_conv)[:, 0],'r', label='EKF')
-plt.plot(a_res, 100*np.array(ekf_conv)[:, 0],'--r', label='UKF')
-plt.plot(a_res, 100*np.array(balreg_conv)[:, 0],'b', label='Ballistic reg MHE')
-plt.plot(a_res, 100*np.array(multi_reg_conv)[:, 0],'--b', label='Multi-shooting MHE')
-# plt.set(xlabel=r"$\sigma_{\beta} \; (rad)$", ylabel="Non-divergence percentage")
-plt.xlabel(r"$a_{res} \; (m.s^{-2})$")
+plt.plot(np.power(np.array(R_m)[:, 1,1], 0.5), 100*np.array(ekf_conv)[:, 0],'r', label='EKF')
+plt.plot(np.power(np.array(R_m)[:, 1,1], 0.5), 100*np.array(ekf_conv)[:, 0],'--r', label='UKF')
+plt.plot(np.power(np.array(R_m)[:, 1,1], 0.5), 100*np.array(balreg_conv)[:, 0],'b', label='Ballistic reg MHE')
+plt.plot(np.power(np.array(R_m)[:, 1,1], 0.5), 100*np.array(multi_reg_conv)[:, 0],'--b', label='Multi-shooting MHE')
+plt.xlabel(r"$\sigma_\beta \; (rad)$")
 plt.ylabel("Non-divergence (%)")
-plt.legend(loc='upper center', ncol=4)
+# plt.legend(loc='upper center', ncol=4)
 
 plt.show()
