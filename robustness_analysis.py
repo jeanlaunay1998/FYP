@@ -19,93 +19,97 @@ import matplotlib.pyplot as plt
 from matplotlib import rc
 import seaborn as sns
 
-
-t_lim = 150
-measurement_lapse = 0.5 # time lapse between every measurement
-t = 0.00
-step = int(0)  # number of measurements measurements made
-delta = int(0)
-height = 80e3
-
-# Initialisation of true dynamics and approximation model
-R_m = np.array([[100 ** 2, 0, 0], [0, (1e-3) ** 2, 0], [0, 0, (1e-3) ** 2]])
-o = SateliteObserver(22, 10, R_m)
-d = dynamics(height, 22, 0, 6000, -5, 60, o, wind='off', mass_change='off')
-initialbeta = d.beta[0] + np.random.normal(0, 0.01*d.beta[0], size=1)[0]
-m = model(d.r, d.v, initialbeta, measurement_lapse)
-
-
-# covariance matrices initialise with the ideal case
-R = np.array([[100**2, 0, 0], [0, (1e-3)**2, 0], [0, 0, (1e-3)**2]]) # Measurement covariance matrix
-P0 = np.zeros((7,7))  # Initial covariance matrix
-Q = np.zeros((7,7))  # Process noise covariance matrix
-qa = 0.25 #  Estimated deviation of acceleration between real state and approximated state
-
-for i in range(3):
-    P0[i,i] = 500**2
-    P0[i+3, i+3] = 1000**2
-
-    Q[i, i] = (qa*measurement_lapse**3)/3
-    Q[i, i+3] = (qa*measurement_lapse**2)/2
-    Q[i+3, i] = (qa*measurement_lapse**2)/2
-    Q[i+3, i+3] = qa*measurement_lapse
-P0[6,6] = 20**2
-Q[6,6] = 55
-
-time = [0]
-y_real = []
-y_model = []
-real_x = []
-model_x = []
-y_minus1 = o.h(d.r, 'off')
-
 y_error = []
 process_error = []
 
+for asd in range(1):
 
-while height > 5000 and t < t_lim:
-    d.step_update(d.v, d.r)
-    delta = delta + 1
+    t_lim = 150
+    measurement_lapse = 0.5 # time lapse between every measurement
+    t = 0.00
+    step = int(0)  # number of measurements measurements made
+    delta = int(0)
+    height = 80e3
 
-    # update stopping criteria
-    t = t + d.delta_t
-    height = d.h[len(d.h)-1]
+    # Initialisation of true dynamics and approximation model
+    R_m = np.array([[100 ** 2, 0, 0], [0, (2e-3) ** 2, 0], [0, 0, (2e-3) ** 2]])
+    o = SateliteObserver(22, 10, R_m)
+    acc_noise = 16
+    beta_noise = 0.03
+    d = dynamics(height, 22, 0, 6000, -5, 60, o, wind='off', mass_change='off', q_a=acc_noise, q_bp=beta_noise)
+    initialbeta = d.beta[0] + np.random.normal(0, 0.01*d.beta[0], size=1)[0]
+    m = model(d.r, d.v, initialbeta, measurement_lapse)
 
-    # measurements are only taken every 0.5 seconds (in the interest of time)
-    if delta == measurement_lapse/d.delta_t:
-        print('time: ', t-t_lim)
-        step = step + 1
-        delta = int(0)
 
-        if step == 1:
-            y_real = [o.h(d.r, 'off')]
-            m.reinitialise(y_minus1, y_real[0], o, measurement_lapse)
+    # covariance matrices initialise with the ideal case
+    R = np.array([[100**2, 0, 0], [0, (1e-3)**2, 0], [0, 0, (1e-3)**2]]) # Measurement covariance matrix
+    P0 = np.zeros((7,7))  # Initial covariance matrix
+    Q = np.zeros((7,7))  # Process noise covariance matrix
+    qa = 1.25 #  Estimated deviation of acceleration between real state and approximated state
 
-            y_model = [o.h(m.r)]
-            real_x = [[d.r, d.v]]
-            model_x = [[m.r[0], m.r[1], m.r[2], m.v[0], m.v[1],m.v[2], m.beta]]
-            real_beta = [d.beta[len(d.beta)-1]]
+    for i in range(3):
+        P0[i,i] = 500**2
+        P0[i+3, i+3] = 1000**2
 
-            # initial error not that the process error is yet not considered as it the error in the
-            # state at step 0 corresponds to the initialisation error
-            y_error.append(np.array(y_real[0]) - np.array(o.h(d.r, 'off')))
-            previous_state = [d.r[0], d.r[1], d.r[2], d.v[0], d.v[1], d.v[2], d.beta[len(d.beta)-1][0]]
+        Q[i, i] = (qa*measurement_lapse**3)/3
+        Q[i, i+3] = (qa*measurement_lapse**2)/2
+        Q[i+3, i] = (qa*measurement_lapse**2)/2
+        Q[i+3, i+3] = qa*measurement_lapse
+    P0[6,6] = 20**2
+    Q[6,6] = 60
 
-        else:
-            m.step_update('off')  # the model is updated every 0.5 seconds (problem with discretization)
-            y_real.append(o.h(d.r))
+    time = [0]
+    y_real = []
+    y_model = []
+    real_x = []
+    model_x = []
+    y_minus1 = o.h(d.r, 'off')
 
-            # re-initialise model from taken measurements
-            y_model.append(o.h(m.r, 'off'))
-            time.append(t)
-            real_x.append([d.r, d.v])
-            model_x.append([m.r[0], m.r[1],m.r[2], m.v[0], m.v[1],m.v[2]])
-            real_beta.append(d.beta[len(d.beta) - 1])
 
-            # errors
-            y_error.append(np.array(y_real[step-1]) - np.array(o.h(d.r, 'off')))
-            process_error.append((np.array([d.r[0], d.r[1], d.r[2], d.v[0], d.v[1], d.v[2], d.beta[len(d.beta)-1][0]]) - m.f(previous_state, 'off')))
-            previous_state = [d.r[0], d.r[1], d.r[2], d.v[0], d.v[1], d.v[2], d.beta[len(d.beta)-1][0]]
+    while height > 5000 and t < t_lim:
+        d.step_update(d.v, d.r)
+        delta = delta + 1
+
+        # update stopping criteria
+        t = t + d.delta_t
+        height = d.h[len(d.h)-1]
+
+        # measurements are only taken every 0.5 seconds (in the interest of time)
+        if delta == measurement_lapse/d.delta_t:
+            print('time: ', t-t_lim)
+            step = step + 1
+            delta = int(0)
+
+            if step == 1:
+                y_real = [o.h(d.r, 'off')]
+                m.reinitialise(y_minus1, y_real[0], o, measurement_lapse)
+
+                y_model = [o.h(m.r)]
+                real_x = [[d.r, d.v]]
+                model_x = [[m.r[0], m.r[1], m.r[2], m.v[0], m.v[1],m.v[2], m.beta]]
+                real_beta = [d.beta[len(d.beta)-1]]
+
+                # initial error not that the process error is yet not considered as it the error in the
+                # state at step 0 corresponds to the initialisation error
+                y_error.append(np.array(y_real[0]) - np.array(o.h(d.r, 'off')))
+                previous_state = [d.r[0], d.r[1], d.r[2], d.v[0], d.v[1], d.v[2], d.beta[len(d.beta)-1][0]]
+
+            else:
+                m.step_update('off')  # the model is updated every 0.5 seconds (problem with discretization)
+                y_real.append(o.h(d.r))
+
+                # re-initialise model from taken measurements
+                y_model.append(o.h(m.r, 'off'))
+                time.append(t)
+                real_x.append([d.r, d.v])
+                model_x.append([m.r[0], m.r[1],m.r[2], m.v[0], m.v[1],m.v[2]])
+                real_beta.append(d.beta[len(d.beta) - 1])
+
+                # errors
+                y_error.append(np.array(y_real[step-1]) - np.array(o.h(d.r, 'off')))
+                process_error.append((np.array([d.r[0], d.r[1], d.r[2], d.v[0], d.v[1], d.v[2], d.beta[len(d.beta)-1][0]]) - m.f(previous_state, 'off')))
+                previous_state = [d.r[0], d.r[1], d.r[2], d.v[0], d.v[1], d.v[2], d.beta[len(d.beta)-1][0]]
+                print('acc: ', LA.norm(d.a))
 
 y_mean = np.sum(y_error, 0)/len(y_error)
 process_mean = np.sum(np.abs(process_error), 0)/len(process_error)
@@ -133,77 +137,95 @@ print('----')
 print(process_covariance)
 
 
-sns.set()
-
-theoretical_r = np.random.normal(0, Q[0,0]**0.5, size=50000)
-theoretical_v = np.random.normal(0, Q[3,3]**0.5, size=50000)
-theoretical_beta = np.random.normal(0, Q[6,6]**0.5, size=50000)
-
-fig, axes = plt.subplots(1,3)
-
-prob = pd.DataFrame(np.array(process_error)[:,0:3])
-prob.plot(kind="kde", ax=axes[0])
-prob = pd.DataFrame(theoretical_r)
-axes[0].axvline(np.sum(process_mean[0:3])/3, color='k', linestyle='--')
-prob.plot(kind="kde", style='--', color='k', ax=axes[0], linewidth=1)
-
-prob = pd.DataFrame(np.array(process_error)[:,3:6])
-prob.plot(kind="kde", ax=axes[1])
-prob = pd.DataFrame(theoretical_v)
-axes[1].axvline(sum(process_mean[3:6])/3, color='k', linestyle='--')
-prob.plot(kind="kde", style='--', color='k', ax=axes[1], linewidth=1)
-
-prob = pd.DataFrame(np.array(process_error)[:,6])
-prob.plot(kind="kde", ax=axes[2])
-prob = pd.DataFrame(theoretical_beta)
-axes[2].axvline(process_mean[6], color='k', linestyle='--')
-prob.plot(kind="kde", style='--', color='k', ax=axes[2], linewidth=1)
-
-
-
-axes[0].set_xlabel(r'$r \; (m)$')
-axes[0].legend([r"$x$",r"$y$",r"$z$","Mean", "Model"]);
-axes[1].set_xlabel(r'$v \; (m.s^{-1})$')
-axes[1].legend([r"$x$",r"$y$",r"$z$","Mean", "Model"]);
-axes[2].set_xlabel(r'$\beta \; (kg.m^{-2})$')
-axes[2].legend([r"$\beta$","Mean", "Model"]);
-plt.subplots_adjust(left=0.05, right=0.97, top=0.75, bottom=0.25)
-print(d.m)
-plt.show()
-
-sys.exit()
+# sns.set()
+#
+# theoretical_r = np.random.normal(0, Q[0,0]**0.5, size=50000)
+# theoretical_v = np.random.normal(0, Q[3,3]**0.5, size=50000)
+# theoretical_beta = np.random.normal(0, Q[6,6]**0.5, size=50000)
+#
+# fig, axes = plt.subplots(1,3)
+#
+# prob = pd.DataFrame(np.array(process_error)[:,0:3])
+# prob.plot(kind="kde", ax=axes[0])
+# prob = pd.DataFrame(theoretical_r)
+# axes[0].axvline(np.sum(process_mean[0:3])/3, color='k', linestyle='--')
+# prob.plot(kind="kde", style='--', color='k', ax=axes[0]) #, linewidth=1)
+#
+# prob = pd.DataFrame(np.array(process_error)[:,3:6])
+# prob.plot(kind="kde", ax=axes[1])
+# prob = pd.DataFrame(theoretical_v)
+# axes[1].axvline(sum(process_mean[3:6])/3, color='k', linestyle='--')
+# prob.plot(kind="kde", style='--', color='k', ax=axes[1])#, linewidth=1)
+#
+# prob = pd.DataFrame(np.array(process_error)[:,6])
+# prob.plot(kind="kde", ax=axes[2])
+# prob = pd.DataFrame(theoretical_beta)
+# axes[2].axvline(process_mean[6], color='k', linestyle='--')
+# prob.plot(kind="kde", style='--', color='k', ax=axes[2]) #, linewidth=1)
+#
+#
+#
+# axes[0].set_xlabel(r'$r \; (m)$')
+# axes[0].legend([r"$x$",r"$y$",r"$z$","Mean", "Model"]);
+# axes[1].set_xlabel(r'$v \; (m.s^{-1})$')
+# axes[1].legend([r"$x$",r"$y$",r"$z$","Mean", "Model"]);
+# axes[2].set_xlabel(r'$\beta \; (kg.m^{-2})$')
+# axes[2].legend([r"$\beta$","Mean", "Model"]);
+# plt.subplots_adjust(left=0.05, right=0.97, top=0.75, bottom=0.25)
+# print(d.m)
+# plt.show()
+#
+# sys.exit()
 
 
 
 #  ----------------------------------------------------------------------------------------  #
-
-
-error = [-0.50, -0.25, -0.1, 0, 0.1, 0.25, 0.5]
-Nruns = len(error)
+# ideal q_a = 1.25
+# ideal q_beta = 60
+q_acceleration = [0.125, 0.25, 0.5, 0.75, 1, 1.25, 1.5, 2, 2.5, 3, 4]
+q_beta = [60]
+Nruns = len(q_acceleration)
 ukf_errors = []
 ekf_errors = []
 balreg_error = []
 total_reg = []
 multi_reg = []
+ekf_conv = []
+ukf_conv = []
+balreg_conv = []
+multi_reg_conv = []
 
 Q_0 = Q
 P0_0 = P0
 R_0 = R
 
-for s in range(len(error)):
+for s in range(len(q_acceleration)):
     N = [20, 20]  # size of the horizon
     t = 0.00
     step = int(0)  # number of measurements measurements made
     delta = int(0)
 
     # covariance matrices
-    R = R_0 + error[s]*R
-    P0 = P0_0 #+ error[s]*P0
-    Q = Q_0 # + error[s]*Q
+    # covariance matrices initialise with the ideal case
+    R = np.array([[100 ** 2, 0, 0], [0, (1e-3) ** 2, 0], [0, 0, (1e-3) ** 2]])  # Measurement covariance matrix
+    P0 = np.zeros((7, 7))  # Initial covariance matrix
+    Q = np.zeros((7, 7))  # Process noise covariance matrix
+    qa = q_acceleration[s]  # Estimated deviation of acceleration between real state and approximated state
+
+    for i in range(3):
+        P0[i, i] = 500 ** 2
+        P0[i + 3, i + 3] = 1000 ** 2
+
+        Q[i, i] = (qa * measurement_lapse ** 3) / 3
+        Q[i, i + 3] = (qa * measurement_lapse ** 2) / 2
+        Q[i + 3, i] = (qa * measurement_lapse ** 2) / 2
+        Q[i + 3, i + 3] = qa * measurement_lapse
+    P0[6, 6] = 20 ** 2
+    Q[6, 6] = q_beta[0]
 
     # Initialisation of estimators
     opt = []
-    MHE_type = ['Ballistic reg', 'Multi-shooting']
+    MHE_type = [ 'Multi-shooting', 'Ballistic reg']
     method = ['Newton LS', 'Newton LS', 'Newton LS']
     measurement_pen = []
     model_pen = []
@@ -212,7 +234,7 @@ for s in range(len(error)):
         if MHE_type[i] == 'Total ballistic':
             opt.append(total_ballistic(m, o, N[i], measurement_lapse, model_pen, method[i], Q, R))
         elif MHE_type[i] == 'Ballistic reg':
-            opt.append(MHE_regularisation(m, o, N[i], measurement_lapse, model_pen, method[i], Q, R))
+            opt.append(MHE_regularisation(m, o, N[i], measurement_lapse, model_pen, method[i], Q, R, arrival[i]))
         elif MHE_type[i] == 'Multi-shooting':
             opt.append(multishooting(m, d, o, N[i], measurement_lapse, measurement_pen, model_pen, Q, R, arrival[i], method[i]))
         elif MHE_type[i] == 'MS with PE':
@@ -283,11 +305,14 @@ for s in range(len(error)):
     print(c)
     print(f)
     print('---------------------------------------------------')
-    ekf_errors.append(a)
-    ukf_errors.append(b)
-    balreg_error.append(c)
-    multi_reg.append(f)
-    # totalreg.append(e)
+    ekf_errors.append(a[0])
+    ekf_conv.append([a[1], a[2]])
+    ukf_errors.append(b[0])
+    ukf_conv.append([b[1], b[2]])
+    balreg_error.append(c[0])
+    balreg_conv.append([c[1], c[2]])
+    multi_reg.append(f[0])
+    multi_reg_conv.append([f[1], f[2]])
 
 print(ekf_errors)
 print(ukf_errors)
@@ -300,32 +325,42 @@ fig, ax = plt.subplots(3,1)
 for j in range(3):
     y_plot = []
     for i in range(Nruns):
+        print(i)
         y_plot.append(np.sum(np.power(ekf_errors[i][j], 2))**0.5)
-    ax[j].plot(np.multiply(error, 100), y_plot,'r', label='EKF')
+    ax[j].plot(np.multiply(q_acceleration, 1), y_plot,'r', label='EKF')
 
     y_plot = []
     for i in range(Nruns):
         y_plot.append(np.sum(np.power(ukf_errors[i][j], 2))**0.5)
-    ax[j].plot(np.multiply(error, 100), y_plot, '--r', label='UKF')
+    ax[j].plot(np.multiply(q_acceleration, 1), y_plot, '--r', label='UKF')
 
     y_plot = []
     for i in range(Nruns):
         y_plot.append(np.sum(np.power(multi_reg[i][j], 2)) ** 0.5)
-    ax[j].plot(np.multiply(error, 100), y_plot, 'b', label='Ballistic reg MHE')
+    ax[j].plot(np.multiply(q_acceleration, 1), y_plot, 'b', label='Ballistic reg MHE')
 
     y_plot = []
     for i in range(Nruns):
         y_plot.append(np.sum(np.power(balreg_error[i][j], 2)) ** 0.5)
-    ax[j].plot(np.multiply(error, 100), y_plot, '--b', label='Multi-shooting MHE')
+    ax[j].plot(np.multiply(q_acceleration, 1), y_plot, '--b', label='Multi-shooting MHE')
 
 plot_type = [r"$||r - \hat{r}||$", r"$||v - \hat{v}||$", r"$||\beta - \hat{\beta}||$" ]
 i = 0
 for axs in ax.flat:
-    axs.set(xlabel=r"$e_{R} \; (\%)$", ylabel=plot_type[i])
+    axs.set(xlabel=r"$q_a  \; ((m.s^{-2})^{2}.s)$", ylabel=plot_type[i])
     i = i +1
 for axs in ax.flat:
     axs.label_outer()
 handles, labels = ax[0].get_legend_handles_labels()
 fig.legend(handles, labels, loc='upper center', ncol=4)
+
+plt.figure()
+plt.plot(q_acceleration, 100*np.array(ekf_conv)[:, 0],'r', label='EKF')
+plt.plot(q_acceleration, 100*np.array(ekf_conv)[:, 0],'--r', label='UKF')
+plt.plot(q_acceleration, 100*np.array(balreg_conv)[:, 0],'b', label='Ballistic reg MHE')
+plt.plot(q_acceleration, 100*np.array(multi_reg_conv)[:, 0],'--b', label='Multi-shooting MHE')
+plt.xlabel(r"$q_a  \; ((m.s^{-2})^{2}.s)$$")
+plt.ylabel("Non-divergence (%)")
+# plt.legend(loc='upper center', ncol=4)
 
 plt.show()
